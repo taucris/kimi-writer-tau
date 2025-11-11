@@ -86,70 +86,73 @@ This should be called first before writing any files. Only one project can be ac
 
     def execute(self, project_name: str, state: Optional[NovelState] = None) -> Dict[str, Any]:
         """
-        Creates a new project folder.
+        Creates subdirectories in the existing project folder.
+
+        NOTE: In multi-agent mode, the project folder is already created based on project_id.
+        This tool just ensures subdirectories exist and doesn't change the active folder.
 
         Args:
-            project_name: The desired project name
-            state: Optional novel state to update
+            project_name: The desired project name (informational only)
+            state: Optional novel state to use for project_id
 
         Returns:
             Tool result dictionary
         """
         global _active_project_folder
 
-        # Sanitize the folder name
-        sanitized_name = sanitize_folder_name(project_name)
+        # If we have a state with project_id, use that folder instead
+        if state and state.project_id:
+            # Get the backend directory
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            root_dir = os.path.dirname(backend_dir)
+            output_dir = os.path.join(root_dir, "output")
 
-        # Get the backend directory
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        root_dir = os.path.dirname(backend_dir)
+            # Use the project_id as the folder name (already created)
+            project_path = os.path.join(output_dir, state.project_id)
 
-        # Create output directory if it doesn't exist
-        output_dir = os.path.join(root_dir, "output")
-        if not os.path.exists(output_dir):
+            # Don't change the active folder if it's already set correctly
+            if _active_project_folder and os.path.normpath(_active_project_folder) == os.path.normpath(project_path):
+                pass  # Already correct
+            else:
+                _active_project_folder = project_path
+        else:
+            # Fallback to original behavior if no state (shouldn't happen in multi-agent mode)
+            sanitized_name = sanitize_folder_name(project_name)
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            root_dir = os.path.dirname(backend_dir)
+            output_dir = os.path.join(root_dir, "output")
+            project_path = os.path.join(output_dir, sanitized_name)
+            _active_project_folder = project_path
+
+        # Ensure project folder exists
+        if not os.path.exists(project_path):
             try:
-                os.makedirs(output_dir, exist_ok=True)
+                os.makedirs(project_path, exist_ok=True)
             except Exception as e:
                 return {
                     "success": False,
-                    "message": f"Error creating output directory: {str(e)}"
+                    "message": f"Error creating project folder: {str(e)}"
                 }
 
-        # Create the full path inside output directory
-        project_path = os.path.join(output_dir, sanitized_name)
+        # Create subdirectories for organization
+        subdirs = ['planning', 'manuscript', 'critiques']
+        for subdir in subdirs:
+            subdir_path = os.path.join(project_path, subdir)
+            if not os.path.exists(subdir_path):
+                try:
+                    os.makedirs(subdir_path, exist_ok=True)
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "message": f"Error creating subdirectory '{subdir}': {str(e)}"
+                    }
 
-        # Check if folder already exists
-        if os.path.exists(project_path):
-            # Use existing folder and set it as active
-            _active_project_folder = project_path
-            return {
-                "success": True,
-                "message": f"Project folder already exists at '{project_path}'. Set as active project folder.",
-                "project_path": project_path,
-                "project_name": sanitized_name
-            }
-
-        # Create the folder
-        try:
-            os.makedirs(project_path, exist_ok=True)
-            _active_project_folder = project_path
-
-            # Create subdirectories for organization
-            subdirs = ['planning', 'manuscript', 'critiques']
-            for subdir in subdirs:
-                os.makedirs(os.path.join(project_path, subdir), exist_ok=True)
-
-            return {
-                "success": True,
-                "message": f"Successfully created project folder at '{project_path}'. This is now the active project folder.",
-                "project_path": project_path,
-                "project_name": sanitized_name
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"Error creating project folder: {str(e)}"
-            }
+        return {
+            "success": True,
+            "message": f"Project folder ready at '{project_path}'. Subdirectories (planning, manuscript, critiques) ensured.",
+            "project_path": project_path,
+            "project_name": os.path.basename(project_path)
+        }
 
 
 # For backward compatibility

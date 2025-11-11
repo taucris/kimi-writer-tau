@@ -25,6 +25,7 @@ from backend.tools.project import set_active_project_folder
 from backend.utils.token_counter import estimate_token_count_async, should_compress
 from backend.tools.compression import compress_context_impl
 from backend.websocket_manager import get_ws_manager
+from backend.conversation_history import save_conversation_history, save_conversation_log
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,9 @@ class AgentLoop:
         # Current agent
         self.current_agent = None
 
+        # Track last phase to detect transitions
+        self.last_phase = self.state.phase
+
         # Statistics
         self.start_time = datetime.now()
 
@@ -112,7 +116,18 @@ class AgentLoop:
                     self.state = load_state(self.project_id)  # Reload state
                     continue
 
-                # Get current agent
+                # Detect phase transitions
+                if self.state.phase != self.last_phase:
+                    logger.info(f"Phase transition detected: {self.last_phase} -> {self.state.phase}")
+                    # Force new agent creation on phase transition
+                    self.current_agent = None
+                    self.last_phase = self.state.phase
+
+                    # Delete conversation history from previous phase to ensure fresh start
+                    from backend.conversation_history import clear_conversation_history
+                    clear_conversation_history(self.project_id, self.state.phase.value)
+
+                # Get current agent (creates new if needed)
                 agent = self.get_current_agent()
 
                 # Initialize conversation if needed
@@ -128,6 +143,28 @@ class AgentLoop:
                 self.state.current_agent_iterations += 1
                 save_state(self.state)
 
+                # Checkpoint: Save conversation history after each iteration
+                try:
+                    save_conversation_history(
+                        self.project_id,
+                        self.state.phase.value,
+                        agent.message_history,
+                        self.state.current_agent_iterations
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to save conversation history: {e}")
+
+                # Optionally save human-readable log every 5 iterations
+                if self.state.current_agent_iterations % 5 == 0:
+                    try:
+                        save_conversation_log(
+                            self.project_id,
+                            self.state.phase.value,
+                            agent.message_history
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to save conversation log: {e}")
+
             # Send completion notification
             if is_complete(self.state):
                 stats = self.get_generation_stats()
@@ -136,6 +173,25 @@ class AgentLoop:
 
         except Exception as e:
             logger.error(f"Error in agent loop: {e}", exc_info=True)
+
+            # Save conversation history and log on error for debugging
+            if self.current_agent:
+                try:
+                    save_conversation_history(
+                        self.project_id,
+                        self.state.phase.value,
+                        self.current_agent.message_history,
+                        self.state.current_agent_iterations
+                    )
+                    save_conversation_log(
+                        self.project_id,
+                        self.state.phase.value,
+                        self.current_agent.message_history
+                    )
+                    logger.info("Saved conversation history and log after error")
+                except Exception as save_error:
+                    logger.error(f"Failed to save conversation on error: {save_error}")
+
             await self.ws_manager.send_error(self.project_id, str(e), "agent_loop_error")
             raise
 
@@ -208,15 +264,44 @@ class AgentLoop:
             logger.info("Compressing context...")
             await self.compress_context(agent)
 
-        # Call model with streaming
+        # Call model with streaming (with retry logic for network errors)
+        max_retries = 3
+        retry_delay = 5  # seconds
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                stream = self.client.chat.completions.create(
+                    model=self.config.api.model_name,
+                    messages=agent.message_history,
+                    tools=agent.get_tool_definitions(),
+                    temperature=1.0,
+                    stream=True,
+                    timeout=120.0  # 2 minute timeout
+                )
+                break  # Success, exit retry loop
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+
+                # Check if it's a retryable network error
+                if any(keyword in error_str for keyword in ['peer closed', 'connection', 'timeout', 'incomplete']):
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            f"Network error on attempt {attempt + 1}/{max_retries}: {e}. "
+                            f"Retrying in {retry_delay} seconds..."
+                        )
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                # Not retryable or last attempt
+                raise
+
+        if last_error and attempt == max_retries - 1:
+            # All retries failed
+            raise last_error
+
         try:
-            stream = self.client.chat.completions.create(
-                model=self.config.api.model_name,
-                messages=agent.message_history,
-                tools=agent.get_tool_definitions(),
-                temperature=1.0,
-                stream=True
-            )
 
             # Process stream
             reasoning_content = ""
@@ -288,6 +373,19 @@ class AgentLoop:
 
         except Exception as e:
             logger.error(f"Error in agent iteration: {e}", exc_info=True)
+
+            # Save conversation state on error
+            try:
+                save_conversation_history(
+                    self.project_id,
+                    self.state.phase.value,
+                    agent.message_history,
+                    self.state.current_agent_iterations
+                )
+                logger.info("Saved conversation history after iteration error")
+            except Exception as save_error:
+                logger.error(f"Failed to save conversation on iteration error: {save_error}")
+
             await self.ws_manager.send_error(self.project_id, str(e))
             raise
 

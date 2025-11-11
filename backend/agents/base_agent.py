@@ -6,12 +6,16 @@ inherit from.
 """
 
 import json
+import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 
 from backend.config import NovelConfig
 from backend.state_manager import NovelState
 from backend.tools.base_tool import BaseTool, ToolRegistry
+from backend.conversation_history import load_conversation_history
+
+logger = logging.getLogger(__name__)
 
 
 class BaseAgent(ABC):
@@ -46,11 +50,37 @@ class BaseAgent(ABC):
         # Initialize tools
         self._register_tools()
 
+        # Attempt to recover conversation history for this phase
+        self._load_conversation_history()
+
     def _register_tools(self):
         """Register tools in the tool registry."""
         tools = self.get_tools()
         for tool in tools:
             self.tool_registry.register(tool)
+
+    def _load_conversation_history(self):
+        """
+        Load conversation history from previous session if available.
+
+        This enables recovery from interruptions (crashes, user stops, etc.)
+        """
+        saved_history = load_conversation_history(
+            self.state.project_id,
+            self.state.phase.value
+        )
+
+        if saved_history:
+            self.message_history = saved_history
+            logger.info(
+                f"Recovered {len(saved_history)} messages from previous session "
+                f"for phase {self.state.phase.value}"
+            )
+        else:
+            logger.debug(
+                f"No previous conversation history found for phase {self.state.phase.value}, "
+                "starting fresh"
+            )
 
     @abstractmethod
     def get_system_prompt(self) -> str:
@@ -154,7 +184,7 @@ class BaseAgent(ABC):
 
         Args:
             content: Message content
-            tool_calls: Tool calls made
+            tool_calls: Tool calls made (will be converted to dicts if objects)
             reasoning: Reasoning content (if supported by model)
         """
         message = {"role": "assistant"}
@@ -163,7 +193,23 @@ class BaseAgent(ABC):
             message["content"] = content
 
         if tool_calls:
-            message["tool_calls"] = tool_calls
+            # Convert tool calls to dictionaries if they're objects
+            serialized_tool_calls = []
+            for tc in tool_calls:
+                if isinstance(tc, dict):
+                    serialized_tool_calls.append(tc)
+                elif hasattr(tc, '__dict__'):
+                    # Convert object to dict
+                    tc_dict = {
+                        'id': getattr(tc, 'id', None),
+                        'type': getattr(tc, 'type', 'function'),
+                        'function': {
+                            'name': getattr(tc.function, 'name', '') if hasattr(tc, 'function') else '',
+                            'arguments': getattr(tc.function, 'arguments', '') if hasattr(tc, 'function') else ''
+                        }
+                    }
+                    serialized_tool_calls.append(tc_dict)
+            message["tool_calls"] = serialized_tool_calls
 
         if reasoning:
             message["reasoning_content"] = reasoning
@@ -176,14 +222,22 @@ class BaseAgent(ABC):
 
         Args:
             results: List of tool execution results
-            tool_calls: Corresponding tool calls
+            tool_calls: Corresponding tool calls (can be dicts or objects)
         """
         for tool_call, result in zip(tool_calls, results):
+            # Extract id and name from tool_call (works for both dict and object)
+            if isinstance(tool_call, dict):
+                tc_id = tool_call.get('id')
+                tc_name = tool_call.get('function', {}).get('name')
+            else:
+                tc_id = getattr(tool_call, 'id', None)
+                tc_name = getattr(tool_call.function, 'name', '') if hasattr(tool_call, 'function') else ''
+
             self.message_history.append({
                 "role": "tool",
                 "content": json.dumps(result),
-                "tool_call_id": tool_call.id,
-                "name": tool_call.function.name
+                "tool_call_id": tc_id,
+                "name": tc_name
             })
 
     def load_project_files(self, *file_paths) -> Dict[str, str]:

@@ -215,7 +215,8 @@ def compress_context_impl(
     messages: List[Any],
     client,
     model: str,
-    keep_recent: int = 10
+    keep_recent: int = 10,
+    state: Optional[NovelState] = None
 ) -> Dict[str, Any]:
     """
     Legacy implementation for backward compatibility.
@@ -225,9 +226,10 @@ def compress_context_impl(
         client: The OpenAI client instance
         model: The model to use for summarization
         keep_recent: Number of recent messages to keep uncompressed
+        state: Optional novel state to update
 
     Returns:
         Compression result dictionary
     """
     tool = CompressContextTool()
-    return tool.execute(messages, client, model, keep_recent)
+    return tool.execute(messages, client, model, keep_recent, state=state)

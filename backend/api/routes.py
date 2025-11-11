@@ -6,9 +6,12 @@ and control.
 """
 
 import os
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from backend.api.schemas import (
     CreateProjectRequest, UpdateConfigRequest, ApprovalDecisionRequest,
@@ -37,6 +40,7 @@ from backend.system_prompts import (
     WRITING_AGENT_BASE_PROMPT, WRITE_CRITIC_AGENT_BASE_PROMPT
 )
 from backend.utils.file_helpers import list_project_files, read_file
+from backend.generation_manager import get_generation_manager
 
 router = APIRouter()
 
@@ -299,13 +303,48 @@ async def delete_project(project_id: str):
 @router.post("/projects/{project_id}/start")
 async def start_generation(project_id: str):
     """Start novel generation (handled by agent_loop in background)."""
-    # This endpoint will trigger the agent loop to start
-    # Implementation will be in agent_loop.py
-    return SuccessResponse(
-        success=True,
-        message=f"Generation started for project {project_id}",
-        data={"project_id": project_id}
-    )
+    try:
+        # Verify project exists
+        try:
+            load_state(project_id)
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project {project_id} not found"
+            )
+
+        # Get generation manager
+        gen_manager = get_generation_manager()
+
+        # Check if already running
+        if gen_manager.is_running(project_id):
+            return SuccessResponse(
+                success=True,
+                message="Generation already running",
+                data={"project_id": project_id, "already_running": True}
+            )
+
+        # Start generation
+        started = await gen_manager.start_generation(project_id)
+
+        if started:
+            return SuccessResponse(
+                success=True,
+                message=f"Generation started for project {project_id}",
+                data={"project_id": project_id}
+            )
+        else:
+            return SuccessResponse(
+                success=False,
+                message="Failed to start generation (may already be running)",
+                data={"project_id": project_id}
+            )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error starting generation: {str(e)}"
+        )
 
 
 @router.post("/projects/{project_id}/pause")
@@ -335,6 +374,13 @@ async def resume_project(project_id: str):
         state = load_state(project_id)
         resume_generation(state)
         save_state(state)
+
+        # Check if generation task is running
+        gen_manager = get_generation_manager()
+        if not gen_manager.is_running(project_id):
+            # Start the generation task if it's not running
+            logger.info(f"Resuming project {project_id}, starting generation task")
+            await gen_manager.start_generation(project_id)
 
         return SuccessResponse(
             success=True,
@@ -575,6 +621,33 @@ async def get_status(project_id: str):
         )
 
 
+@router.get("/projects/{project_id}/state", response_model=StateResponse)
+async def get_state(project_id: str):
+    """Get current project state (alias for /status endpoint)."""
+    try:
+        state = load_state(project_id)
+
+        return StateResponse(
+            project_id=project_id,
+            phase=state.phase.value,
+            plan_approved=state.plan_approved,
+            total_chapters=state.total_chapters,
+            current_chapter=state.current_chapter,
+            chapters_completed=state.chapters_completed,
+            chapters_approved=state.chapters_approved,
+            paused=state.paused,
+            created_at=state.created_at,
+            last_updated=state.last_updated,
+            progress_percentage=get_progress_percentage(state)
+        )
+
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found"
+        )
+
+
 @router.get("/projects/{project_id}/progress", response_model=ProgressResponse)
 async def get_progress(project_id: str):
     """Get progress information."""
@@ -590,6 +663,34 @@ async def get_progress(project_id: str):
             chapters_completed=len(state.chapters_completed),
             estimated_completion=state.estimated_completion
         )
+
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found"
+        )
+
+
+@router.get("/projects/{project_id}/generation-status")
+async def get_generation_status(project_id: str):
+    """Get generation status (whether generation task is actively running)."""
+    try:
+        # Verify project exists
+        state = load_state(project_id)
+
+        # Check if generation task is running
+        gen_manager = get_generation_manager()
+        is_running = gen_manager.is_running(project_id)
+
+        return {
+            "project_id": project_id,
+            "is_running": is_running,
+            "is_paused": state.paused,
+            "phase": state.phase.value,
+            "can_start": not is_running,
+            "can_pause": is_running and not state.paused,
+            "can_resume": state.paused or not is_running
+        }
 
     except FileNotFoundError:
         raise HTTPException(

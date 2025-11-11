@@ -186,9 +186,9 @@ def create_new_state(project_id: str) -> NovelState:
         project_id: Project ID
 
     Returns:
-        New NovelState instance
+        New NovelState instance (paused by default)
     """
-    return NovelState(project_id=project_id)
+    return NovelState(project_id=project_id, paused=True)
 
 
 def update_phase(state: NovelState, new_phase: Phase) -> NovelState:

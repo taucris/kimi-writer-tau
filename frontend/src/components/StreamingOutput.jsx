@@ -91,7 +91,8 @@ export function StreamingOutput({ content, reasoning, isStreaming }) {
             </div>
             <div
               ref={reasoningRef}
-              className="max-h-48 overflow-y-auto px-4 py-3 bg-blue-50"
+              className="max-h-96 overflow-y-auto px-4 py-3 bg-blue-50"
+              style={{ minHeight: '200px' }}
             >
               <pre className="text-sm text-blue-900 whitespace-pre-wrap font-mono">
                 {reasoning}
@@ -101,7 +102,7 @@ export function StreamingOutput({ content, reasoning, isStreaming }) {
         )}
 
         {/* Main Content Section */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col" style={{ minHeight: '300px' }}>
           <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-gray-900 rounded-full" />

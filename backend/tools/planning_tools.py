@@ -6,12 +6,16 @@ story blueprints including summary, characters, structure, and outline.
 """
 
 import os
+import logging
 from typing import Dict, Any, Optional
 
 from backend.tools.base_tool import BaseTool
 from backend.tools.project import get_active_project_folder
 from backend.state_manager import NovelState, save_state, update_phase
 from backend.config import Phase
+from backend.utils.file_writer import atomic_write, validate_content
+
+logger = logging.getLogger(__name__)
 
 
 class CreateStorySummaryTool(BaseTool):
@@ -67,30 +71,50 @@ main themes, central conflict, and narrative arc. This is the foundational plann
                 "message": "Error: No active project folder. Create project first."
             }
 
+        # Prepare content
+        content = f"# {project_name}\n\n## Story Summary\n\n{summary_text}\n"
+
+        # Validate content
+        is_valid, error_msg = validate_content(content, min_words=50)
+        if not is_valid:
+            return {
+                "success": False,
+                "message": f"Content validation failed: {error_msg}"
+            }
+
         # Create file in planning directory
         file_path = os.path.join(project_folder, "planning", "summary.md")
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(f"# {project_name}\n\n")
-                f.write(f"## Story Summary\n\n")
-                f.write(summary_text)
-                f.write("\n")
+            # Use atomic write for safety
+            atomic_write(file_path, content, backup=False)  # No backup for new files
 
             # Update state
             if state:
                 state.plan_files_created['planning/summary.md'] = True
                 save_state(state)
 
+            word_count = len(content.split())
             return {
                 "success": True,
-                "message": f"Successfully created story summary in planning/summary.md",
+                "message": f"Successfully created story summary in planning/summary.md ({word_count} words)",
                 "file_path": file_path,
                 "next_step": "Now create the dramatis personae (character profiles) using create_dramatis_personae"
             }
 
+        except ValueError as e:
+            return {
+                "success": False,
+                "message": f"Validation error: {str(e)}"
+            }
+        except IOError as e:
+            logger.error(f"IO error creating summary: {e}", exc_info=True)
+            return {
+                "success": False,
+                "message": f"Failed to write file: {str(e)}"
+            }
         except Exception as e:
+            logger.error(f"Unexpected error creating summary: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": f"Error creating summary: {str(e)}"

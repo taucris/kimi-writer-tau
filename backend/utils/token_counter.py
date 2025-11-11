@@ -51,7 +51,24 @@ def estimate_token_count(
         if 'name' in msg_dict:
             clean_msg['name'] = msg_dict['name']
         if 'tool_calls' in msg_dict and msg_dict['tool_calls']:
-            clean_msg['tool_calls'] = msg_dict['tool_calls']
+            # Ensure tool_calls are serializable dictionaries
+            clean_tool_calls = []
+            for tc in msg_dict['tool_calls']:
+                if isinstance(tc, dict):
+                    clean_tool_calls.append(tc)
+                elif hasattr(tc, '__dict__'):
+                    # Convert object to dict
+                    tc_dict = {
+                        'id': getattr(tc, 'id', None),
+                        'type': getattr(tc, 'type', 'function'),
+                        'function': {
+                            'name': getattr(tc.function, 'name', '') if hasattr(tc, 'function') else '',
+                            'arguments': getattr(tc.function, 'arguments', '') if hasattr(tc, 'function') else ''
+                        }
+                    }
+                    clean_tool_calls.append(tc_dict)
+            if clean_tool_calls:
+                clean_msg['tool_calls'] = clean_tool_calls
         if 'tool_call_id' in msg_dict:
             clean_msg['tool_call_id'] = msg_dict['tool_call_id']
 
@@ -117,7 +134,24 @@ async def estimate_token_count_async(
         if 'name' in msg_dict:
             clean_msg['name'] = msg_dict['name']
         if 'tool_calls' in msg_dict and msg_dict['tool_calls']:
-            clean_msg['tool_calls'] = msg_dict['tool_calls']
+            # Ensure tool_calls are serializable dictionaries
+            clean_tool_calls = []
+            for tc in msg_dict['tool_calls']:
+                if isinstance(tc, dict):
+                    clean_tool_calls.append(tc)
+                elif hasattr(tc, '__dict__'):
+                    # Convert object to dict
+                    tc_dict = {
+                        'id': getattr(tc, 'id', None),
+                        'type': getattr(tc, 'type', 'function'),
+                        'function': {
+                            'name': getattr(tc.function, 'name', '') if hasattr(tc, 'function') else '',
+                            'arguments': getattr(tc.function, 'arguments', '') if hasattr(tc, 'function') else ''
+                        }
+                    }
+                    clean_tool_calls.append(tc_dict)
+            if clean_tool_calls:
+                clean_msg['tool_calls'] = clean_tool_calls
         if 'tool_call_id' in msg_dict:
             clean_msg['tool_call_id'] = msg_dict['tool_call_id']
 
