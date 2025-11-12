@@ -17,6 +17,7 @@ class CreateProjectRequest(BaseModel):
     """Request to create a new novel project."""
     project_name: str = Field(..., min_length=1, max_length=100)
     theme: str = Field(..., min_length=1)
+    model_id: str = Field(default="kimi-k2-thinking")  # AI model to use
     novel_length: NovelLength = NovelLength.NOVEL
     genre: Optional[str] = None
     writing_sample_id: Optional[str] = None

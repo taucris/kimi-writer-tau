@@ -25,7 +25,8 @@ from backend.api.schemas import (
 from backend.config import (
     NovelConfig, get_default_config, load_config_from_file,
     save_config_to_file, get_config_path, generate_project_id,
-    sanitize_project_name, WritingSampleConfig, CheckpointConfig, AgentConfig
+    sanitize_project_name, WritingSampleConfig, CheckpointConfig, AgentConfig,
+    AVAILABLE_MODELS
 )
 from backend.state_manager import (
     NovelState, create_new_state, load_state, save_state,
@@ -57,16 +58,47 @@ async def create_project(request: CreateProjectRequest):
         project_id = generate_project_id()
         sanitized_name = sanitize_project_name(request.project_name)
 
-        # Get API key from environment
-        api_key = os.getenv("MOONSHOT_API_KEY")
-        if not api_key:
+        # Get API keys from environment
+        moonshot_api_key = os.getenv("MOONSHOT_API_KEY")
+        deepinfra_api_key = os.getenv("DEEPINFRA_API_KEY")
+
+        # Determine which model is being used
+        model_id = getattr(request, 'model_id', 'kimi-k2-thinking')
+
+        # Validate that required API key is available
+        model_config = None
+        for model in AVAILABLE_MODELS:
+            if model['id'] == model_id:
+                model_config = model
+                break
+
+        if not model_config:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown model: {model_id}"
+            )
+
+        provider = model_config['provider']
+        if provider == 'moonshot' and not moonshot_api_key:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="MOONSHOT_API_KEY not configured"
+                detail="MOONSHOT_API_KEY not configured (required for Kimi models)"
+            )
+        elif provider == 'deepinfra' and not deepinfra_api_key:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="DEEPINFRA_API_KEY not configured (required for DeepInfra models)"
             )
 
         # Create config
-        config = get_default_config(sanitized_name, request.theme, api_key)
+        config = get_default_config(
+            sanitized_name,
+            request.theme,
+            api_key=moonshot_api_key,  # Legacy
+            moonshot_api_key=moonshot_api_key,
+            deepinfra_api_key=deepinfra_api_key,
+            model_id=model_id
+        )
         config.project_id = project_id
         config.novel_length = request.novel_length
         config.genre = request.genre
@@ -185,6 +217,47 @@ async def get_default_configuration():
     api_key = os.getenv("MOONSHOT_API_KEY", "")
     config = get_default_config("example_project", "example theme", api_key)
     return config.model_dump(mode='json')
+
+
+@router.get("/models")
+async def list_available_models():
+    """
+    List all available AI models.
+
+    Returns a list of models with their configurations including:
+    - id: Model identifier
+    - name: Display name
+    - provider: Provider type (moonshot, deepinfra)
+    - context_window: Maximum context window in tokens
+    - supports_reasoning: Whether model outputs reasoning traces
+    - supports_tools: Whether model supports function calling
+    - description: Description for UI
+    - pricing: Pricing information
+    - available: Whether the model is available (API key configured)
+    """
+    # Check which API keys are configured
+    moonshot_key = os.getenv("MOONSHOT_API_KEY")
+    deepinfra_key = os.getenv("DEEPINFRA_API_KEY")
+
+    # Add availability status to each model
+    models_with_availability = []
+    for model in AVAILABLE_MODELS:
+        model_info = model.copy()
+
+        # Determine if model is available based on API key
+        if model['provider'] == 'moonshot':
+            model_info['available'] = bool(moonshot_key)
+        elif model['provider'] == 'deepinfra':
+            model_info['available'] = bool(deepinfra_key)
+        else:
+            model_info['available'] = False
+
+        models_with_availability.append(model_info)
+
+    return {
+        "models": models_with_availability,
+        "total_count": len(models_with_availability)
+    }
 
 
 # ============================================================================

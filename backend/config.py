@@ -71,14 +71,102 @@ class AgentConfig(BaseModel):
     write_critic_prompt_override: Optional[str] = None
 
 
+class ModelConfig(BaseModel):
+    """Configuration for a specific AI model."""
+    id: str  # Unique identifier (e.g., 'kimi-k2-thinking', 'zai-org/GLM-4.6')
+    name: str  # Display name
+    provider: str  # Provider type ('moonshot', 'deepinfra')
+    context_window: int  # Maximum context window in tokens
+    supports_reasoning: bool = False  # Whether model outputs reasoning traces
+    supports_tools: bool = True  # Whether model supports function calling
+    description: str = ""  # Description for UI
+    pricing: Optional[str] = None  # Pricing info (e.g., "$0.45/M in, $1.90/M out")
+
+
+# Available models configuration
+AVAILABLE_MODELS = [
+    {
+        "id": "kimi-k2-thinking",
+        "name": "Kimi K2 Thinking",
+        "provider": "moonshot",
+        "context_window": 200000,
+        "supports_reasoning": True,
+        "supports_tools": True,
+        "description": "Moonshot AI's most advanced model with reasoning capabilities. Best quality but slower.",
+        "pricing": "Variable"
+    },
+    {
+        "id": "zai-org/GLM-4.6",
+        "name": "GLM-4.6",
+        "provider": "deepinfra",
+        "context_window": 200000,
+        "supports_reasoning": False,
+        "supports_tools": True,
+        "description": "Fast and capable model with 200K context window. Great for testing and faster iterations.",
+        "pricing": "$0.45/M in, $1.90/M out"
+    }
+]
+
+
 class APIConfig(BaseModel):
-    """Configuration for Moonshot AI API."""
-    api_key: str
-    base_url: str = "https://api.moonshot.ai/v1"
-    model_name: str = "kimi-k2-thinking"
+    """Configuration for AI API."""
+    # API keys for different providers
+    moonshot_api_key: Optional[str] = None
+    deepinfra_api_key: Optional[str] = None
+
+    # Selected model
+    model_id: str = "kimi-k2-thinking"  # Default to Kimi
+
+    # Legacy field for backward compatibility
+    api_key: Optional[str] = None  # Will be mapped to moonshot_api_key if present
+    base_url: Optional[str] = None  # Legacy, now determined by provider
+    model_name: Optional[str] = None  # Legacy, now model_id
+
+    # Model-independent settings
     token_limit: int = 200000
     compression_threshold: int = 180000  # Start compression at 90% of limit
     max_iterations: int = 300  # Safety limit for infinite loops
+
+    def get_provider_api_key(self, provider: str) -> str:
+        """
+        Get API key for a specific provider.
+
+        Args:
+            provider: Provider name ('moonshot' or 'deepinfra')
+
+        Returns:
+            API key string
+
+        Raises:
+            ValueError: If API key not found for provider
+        """
+        # Handle legacy api_key field
+        if provider == 'moonshot':
+            key = self.moonshot_api_key or self.api_key
+            if not key:
+                raise ValueError("Moonshot API key not configured")
+            return key
+        elif provider == 'deepinfra':
+            if not self.deepinfra_api_key:
+                raise ValueError("DeepInfra API key not configured")
+            return self.deepinfra_api_key
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+
+    def get_model_config(self) -> Optional[Dict[str, Any]]:
+        """
+        Get configuration for the selected model.
+
+        Returns:
+            Model configuration dictionary or None if not found
+        """
+        # Handle legacy model_name field
+        model_id = self.model_id or self.model_name or "kimi-k2-thinking"
+
+        for model in AVAILABLE_MODELS:
+            if model["id"] == model_id:
+                return model
+        return None
 
 
 class NovelConfig(BaseModel):
@@ -183,9 +271,16 @@ def validate_config(config: NovelConfig) -> bool:
     Raises:
         ValueError: If configuration is invalid
     """
-    # Validate API key
-    if not config.api.api_key:
-        raise ValueError("API key is required")
+    # Validate API key for selected model
+    model_config = config.api.get_model_config()
+    if not model_config:
+        raise ValueError(f"Unknown model: {config.api.model_id}")
+
+    provider = model_config['provider']
+    try:
+        config.api.get_provider_api_key(provider)
+    except ValueError as e:
+        raise ValueError(f"API key validation failed: {e}")
 
     # Validate project name
     if not config.project_name:
@@ -204,7 +299,10 @@ def validate_config(config: NovelConfig) -> bool:
 def get_default_config(
     project_name: str,
     theme: str,
-    api_key: str
+    api_key: Optional[str] = None,
+    moonshot_api_key: Optional[str] = None,
+    deepinfra_api_key: Optional[str] = None,
+    model_id: str = "kimi-k2-thinking"
 ) -> NovelConfig:
     """
     Get default configuration with minimal user input.
@@ -212,7 +310,10 @@ def get_default_config(
     Args:
         project_name: Name for the project
         theme: User's theme/prompt
-        api_key: Moonshot API key
+        api_key: Legacy Moonshot API key (for backward compatibility)
+        moonshot_api_key: Moonshot API key
+        deepinfra_api_key: DeepInfra API key
+        model_id: Model identifier (default: kimi-k2-thinking)
 
     Returns:
         NovelConfig with default settings
@@ -220,11 +321,20 @@ def get_default_config(
     project_id = generate_project_id()
     sanitized_name = sanitize_project_name(project_name)
 
+    # Handle legacy api_key parameter
+    if api_key and not moonshot_api_key:
+        moonshot_api_key = api_key
+
     return NovelConfig(
         project_id=project_id,
         project_name=sanitized_name,
         theme=theme,
-        api=APIConfig(api_key=api_key)
+        api=APIConfig(
+            api_key=api_key,  # Keep for legacy compatibility
+            moonshot_api_key=moonshot_api_key,
+            deepinfra_api_key=deepinfra_api_key,
+            model_id=model_id
+        )
     )
 
 

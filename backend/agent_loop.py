@@ -9,10 +9,10 @@ import json
 import asyncio
 import logging
 from typing import Optional, List, Dict, Any
-from openai import OpenAI
 from datetime import datetime
 
 from backend.config import NovelConfig, Phase, load_config_from_file, get_config_path
+from backend.model_providers import get_provider
 from backend.state_manager import (
     NovelState, load_state, save_state, update_phase,
     require_approval, is_complete, get_progress_percentage
@@ -66,10 +66,20 @@ class AgentLoop:
         else:
             self.state = state
 
-        # Initialize OpenAI client
-        self.client = OpenAI(
-            api_key=self.config.api.api_key,
-            base_url=self.config.api.base_url
+        # Get model configuration
+        model_config = self.config.api.get_model_config()
+        if not model_config:
+            raise ValueError(f"Unknown model: {self.config.api.model_id}")
+
+        # Initialize model provider
+        provider_type = model_config['provider']
+        api_key = self.config.api.get_provider_api_key(provider_type)
+
+        self.provider = get_provider(provider_type, api_key)
+        self.model_config = model_config
+
+        logger.info(
+            f"Initialized {provider_type} provider for model {model_config['name']}"
         )
 
         # WebSocket manager for real-time updates
@@ -244,9 +254,9 @@ class AgentLoop:
         """
         # Estimate tokens
         token_count = await estimate_token_count_async(
-            self.config.api.base_url,
-            self.config.api.api_key,
-            self.config.api.model_name,
+            self.provider.get_base_url(),
+            self.config.api.get_provider_api_key(self.model_config['provider']),
+            self.config.api.model_id,
             agent.message_history
         )
 
@@ -271,8 +281,8 @@ class AgentLoop:
 
         for attempt in range(max_retries):
             try:
-                stream = self.client.chat.completions.create(
-                    model=self.config.api.model_name,
+                stream = self.provider.create_chat_completion(
+                    model=self.config.api.model_id,
                     messages=agent.message_history,
                     tools=agent.get_tool_definitions(),
                     temperature=1.0,
@@ -310,35 +320,34 @@ class AgentLoop:
             role = None
 
             for chunk in stream:
-                if not chunk.choices:
-                    continue
+                # Use provider's parse method to handle different formats
+                parsed = self.provider.parse_stream_chunk(chunk)
 
-                delta = chunk.choices[0].delta
+                # Extract role
+                if parsed['role']:
+                    role = parsed['role']
 
-                if hasattr(delta, "role") and delta.role:
-                    role = delta.role
-
-                # Handle reasoning content
-                if hasattr(delta, "reasoning_content") and delta.reasoning_content:
-                    reasoning_content += delta.reasoning_content
+                # Handle reasoning content (if supported by model)
+                if parsed['reasoning_content']:
+                    reasoning_content += parsed['reasoning_content']
                     await self.ws_manager.send_stream_chunk(
                         self.project_id,
-                        delta.reasoning_content,
+                        parsed['reasoning_content'],
                         is_reasoning=True
                     )
 
                 # Handle regular content
-                if hasattr(delta, "content") and delta.content:
-                    content_text += delta.content
+                if parsed['content']:
+                    content_text += parsed['content']
                     await self.ws_manager.send_stream_chunk(
                         self.project_id,
-                        delta.content,
+                        parsed['content'],
                         is_reasoning=False
                     )
 
                 # Handle tool calls
-                if hasattr(delta, "tool_calls") and delta.tool_calls:
-                    for tc_delta in delta.tool_calls:
+                if parsed['tool_calls']:
+                    for tc_delta in parsed['tool_calls']:
                         while len(tool_calls_data) <= tc_delta.index:
                             tool_calls_data.append({
                                 "id": None,
@@ -513,10 +522,11 @@ class AgentLoop:
         Args:
             agent: Current agent
         """
+        # Pass provider's client to compression function
         result = compress_context_impl(
             messages=agent.message_history,
-            client=self.client,
-            model=self.config.api.model_name,
+            client=self.provider._client,
+            model=self.config.api.model_id,
             keep_recent=10,
             state=self.state
         )

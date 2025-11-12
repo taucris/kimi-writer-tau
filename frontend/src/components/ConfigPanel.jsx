@@ -5,7 +5,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Settings, Save, X, AlertCircle } from 'lucide-react';
+import { Settings, Save, X, AlertCircle, Zap, Info } from 'lucide-react';
+import { listModels } from '../services/api';
 
 const NOVEL_LENGTHS = [
   { value: 'short_story', label: 'Short Story', chapters: 3, words: '3k-10k' },
@@ -26,6 +27,7 @@ export function ConfigPanel({
   const [config, setConfig] = useState({
     project_name: '',
     theme: '',
+    model_id: 'kimi-k2-thinking',  // Default model
     novel_length: 'novel',
     genre: '',
     writing_sample_id: null,
@@ -38,6 +40,32 @@ export function ConfigPanel({
   });
 
   const [errors, setErrors] = useState({});
+  const [models, setModels] = useState([]);
+  const [loadingModels, setLoadingModels] = useState(true);
+
+  // Fetch available models on mount
+  useEffect(() => {
+    async function fetchModels() {
+      try {
+        const response = await listModels();
+        setModels(response.models || []);
+      } catch (error) {
+        console.error('Failed to fetch models:', error);
+        // Set default model if fetch fails
+        setModels([{
+          id: 'kimi-k2-thinking',
+          name: 'Kimi K2 Thinking',
+          provider: 'moonshot',
+          description: 'Default model',
+          available: true
+        }]);
+      } finally {
+        setLoadingModels(false);
+      }
+    }
+
+    fetchModels();
+  }, []);
 
   useEffect(() => {
     if (initialConfig) {
@@ -157,6 +185,61 @@ export function ConfigPanel({
                   placeholder="e.g., Mystery, Science Fiction, Romance"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  AI Model
+                </label>
+                <select
+                  value={config.model_id}
+                  onChange={(e) => handleChange('model_id', e.target.value)}
+                  disabled={loadingModels}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {loadingModels ? (
+                    <option>Loading models...</option>
+                  ) : (
+                    models.map((model) => (
+                      <option
+                        key={model.id}
+                        value={model.id}
+                        disabled={!model.available}
+                      >
+                        {model.name} {!model.available ? '(API key not configured)' : ''}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {!loadingModels && models.length > 0 && (() => {
+                  const selectedModel = models.find(m => m.id === config.model_id);
+                  return selectedModel ? (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium">{selectedModel.name}</p>
+                          <p className="mt-1">{selectedModel.description}</p>
+                          {selectedModel.pricing && (
+                            <p className="mt-1 text-xs">Pricing: {selectedModel.pricing}</p>
+                          )}
+                          <div className="mt-2 flex items-center gap-3 text-xs">
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              Context: {(selectedModel.context_window / 1000).toFixed(0)}K tokens
+                            </span>
+                            {selectedModel.supports_reasoning && (
+                              <span className="text-green-700">✓ Reasoning</span>
+                            )}
+                            {selectedModel.supports_tools && (
+                              <span className="text-green-700">✓ Tools</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               <div>

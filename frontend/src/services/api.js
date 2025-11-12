@@ -40,6 +40,13 @@ async function apiFetch(endpoint, options = {}) {
 // ============================================================================
 
 /**
+ * Get list of available AI models.
+ */
+export async function listModels() {
+  return apiFetch('/models');
+}
+
+/**
  * Create a new novel project with configuration.
  */
 export async function createProject(config) {

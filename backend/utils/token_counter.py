@@ -95,6 +95,40 @@ def estimate_token_count(
         return data.get("data", {}).get("total_tokens", 0)
 
 
+def estimate_token_count_simple(messages: List[Dict]) -> int:
+    """
+    Simple token estimation using character count approximation.
+
+    This is used for models that don't have a token counting API.
+    Roughly 4 characters = 1 token for most models.
+
+    Args:
+        messages: List of message dictionaries
+
+    Returns:
+        Estimated token count
+    """
+    total_chars = 0
+
+    for msg in messages:
+        if isinstance(msg, dict):
+            # Count content
+            if 'content' in msg and msg['content']:
+                total_chars += len(str(msg['content']))
+
+            # Count tool calls
+            if 'tool_calls' in msg and msg['tool_calls']:
+                import json
+                total_chars += len(json.dumps(msg['tool_calls']))
+
+            # Count reasoning if present
+            if 'reasoning_content' in msg and msg['reasoning_content']:
+                total_chars += len(str(msg['reasoning_content']))
+
+    # Approximate: 4 characters = 1 token
+    return int(total_chars / 4)
+
+
 async def estimate_token_count_async(
     base_url: str,
     api_key: str,
@@ -103,6 +137,9 @@ async def estimate_token_count_async(
 ) -> int:
     """
     Async version of token estimation.
+
+    For Moonshot models, uses the API token counting endpoint.
+    For other models, uses simple character-based approximation.
 
     Args:
         base_url: The base URL for the API
@@ -114,8 +151,14 @@ async def estimate_token_count_async(
         Total token count
 
     Raises:
-        httpx.HTTPStatusError: If API request fails
+        httpx.HTTPStatusError: If API request fails (for Moonshot only)
     """
+    # Check if this is a Moonshot model by base_url
+    is_moonshot = 'moonshot' in base_url.lower()
+
+    # For non-Moonshot models, use simple approximation
+    if not is_moonshot:
+        return estimate_token_count_simple(messages)
     # Convert messages to serializable format
     serializable_messages = []
     for msg in messages:
