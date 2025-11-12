@@ -84,7 +84,7 @@ export function QualityControlSettings({ config, onChange }) {
 
             <div>
               <label className="block text-xs font-body font-semibold text-obsidian-700 mb-2 tracking-wide uppercase">
-                Chapter Critique Iterations
+                Chunk Critique Iterations
               </label>
               <input
                 type="number"
@@ -97,7 +97,7 @@ export function QualityControlSettings({ config, onChange }) {
                 className="w-full px-3 py-2 bg-pearl-50 border border-obsidian-300 rounded-md text-sm font-body text-obsidian-900 focus:outline-none focus:ring-1 focus:ring-obsidian-600 focus:border-obsidian-600"
               />
               <p className="mt-2 text-xs text-obsidian-500 font-body italic">
-                How many times each chapter will be critiqued and revised
+                How many times each chunk will be critiqued and revised
               </p>
             </div>
           </div>

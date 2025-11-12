@@ -1,8 +1,8 @@
 """
-Write critique phase tools for the Chapter Editor agent.
+Write critique phase tools for the Chunk Editor agent.
 
 These tools are used during Phase 4 (WRITE_CRITIQUE) to review and critique
-individual chapters, ensuring quality before moving forward.
+individual chunks, ensuring quality before moving forward.
 """
 
 import os
@@ -11,20 +11,20 @@ from datetime import datetime
 
 from backend.tools.base_tool import BaseTool
 from backend.tools.project import get_active_project_folder
-from backend.state_manager import NovelState, save_state, update_phase, increment_chapter
+from backend.state_manager import NovelState, save_state, update_phase, increment_chunk
 from backend.config import Phase
 
 
-class LoadChapterForReviewTool(BaseTool):
-    """Tool for loading a chapter for review."""
+class LoadChunkForReviewTool(BaseTool):
+    """Tool for loading a chunk for review."""
 
     @property
     def name(self) -> str:
-        return "load_chapter_for_review"
+        return "load_chunk_for_review"
 
     @property
     def description(self) -> str:
-        return """Loads the specified chapter for review. Use this to read the chapter content \
+        return """Loads the specified chunk for review. Use this to read the chunk content \
 before providing critique."""
 
     @property
@@ -32,28 +32,28 @@ before providing critique."""
         return {
             "type": "object",
             "properties": {
-                "chapter_number": {
+                "chunk_number": {
                     "type": "integer",
-                    "description": "The chapter number to review (1-indexed)"
+                    "description": "The chunk number to review (1-indexed)"
                 }
             },
-            "required": ["chapter_number"]
+            "required": ["chunk_number"]
         }
 
     def execute(
         self,
-        chapter_number: int,
+        chunk_number: int,
         state: Optional[NovelState] = None
     ) -> Dict[str, Any]:
         """
-        Loads a chapter for review.
+        Loads a chunk for review.
 
         Args:
-            chapter_number: Chapter number to load
+            chunk_number: Chunk number to load
             state: Optional novel state to update
 
         Returns:
-            Tool result dictionary with chapter content
+            Tool result dictionary with chunk content
         """
         project_folder = get_active_project_folder()
         if not project_folder:
@@ -62,13 +62,13 @@ before providing critique."""
                 "message": "Error: No active project folder."
             }
 
-        filename = f"chapter_{chapter_number:02d}.md"
+        filename = f"chunk_{chunk_number:02d}.md"
         file_path = os.path.join(project_folder, "manuscript", filename)
 
         if not os.path.exists(file_path):
             return {
                 "success": False,
-                "message": f"Chapter {chapter_number} not found."
+                "message": f"Chunk {chunk_number} not found."
             }
 
         try:
@@ -77,7 +77,7 @@ before providing critique."""
 
             word_count = len(content.split())
 
-            formatted_content = f"""CHAPTER {chapter_number} FOR REVIEW:
+            formatted_content = f"""CHUNK {chunk_number} FOR REVIEW:
 
 {'='*80}
 {content}
@@ -88,21 +88,21 @@ Word Count: {word_count}
 
             return {
                 "success": True,
-                "message": f"Loaded Chapter {chapter_number} for review ({word_count} words).",
+                "message": f"Loaded Chunk {chunk_number} for review ({word_count} words).",
                 "content": formatted_content,
-                "chapter_number": chapter_number,
+                "chunk_number": chunk_number,
                 "word_count": word_count
             }
 
         except Exception as e:
             return {
                 "success": False,
-                "message": f"Error loading chapter: {str(e)}"
+                "message": f"Error loading chunk: {str(e)}"
             }
 
 
 class LoadContextForCritiqueTool(BaseTool):
-    """Tool for loading relevant context for chapter critique."""
+    """Tool for loading relevant context for chunk critique."""
 
     @property
     def name(self) -> str:
@@ -110,32 +110,32 @@ class LoadContextForCritiqueTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return """Loads relevant context for critiquing a chapter, including the plan, outline, \
-and previous chapters for continuity checking."""
+        return """Loads relevant context for critiquing a chunk, including the plan, outline, \
+and previous chunks for continuity checking."""
 
     @property
     def parameters(self) -> Dict[str, Any]:
         return {
             "type": "object",
             "properties": {
-                "chapter_number": {
+                "chunk_number": {
                     "type": "integer",
-                    "description": "The chapter number being critiqued"
+                    "description": "The chunk number being critiqued"
                 }
             },
-            "required": ["chapter_number"]
+            "required": ["chunk_number"]
         }
 
     def execute(
         self,
-        chapter_number: int,
+        chunk_number: int,
         state: Optional[NovelState] = None
     ) -> Dict[str, Any]:
         """
         Loads context for critique.
 
         Args:
-            chapter_number: Chapter number being critiqued
+            chunk_number: Chunk number being critiqued
             state: Optional novel state to update
 
         Returns:
@@ -170,19 +170,19 @@ and previous chapters for continuity checking."""
             except:
                 pass
 
-        # Load previous chapter if exists
-        if chapter_number > 1:
-            prev_filename = f"chapter_{chapter_number-1:02d}.md"
+        # Load previous chunk if exists
+        if chunk_number > 1:
+            prev_filename = f"chunk_{chunk_number-1:02d}.md"
             prev_path = os.path.join(project_folder, "manuscript", prev_filename)
             if os.path.exists(prev_path):
                 try:
                     with open(prev_path, 'r', encoding='utf-8') as f:
-                        prev_chapter = f.read()
-                        context_parts.append(f"\nPREVIOUS CHAPTER (Chapter {chapter_number-1}):\n{'='*80}\n{prev_chapter}")
+                        prev_chunk = f.read()
+                        context_parts.append(f"\nPREVIOUS CHUNK (Chunk {chunk_number-1}):\n{'='*80}\n{prev_chunk}")
                 except:
                     pass
 
-        formatted_content = f"""CONTEXT FOR CRITIQUING CHAPTER {chapter_number}:
+        formatted_content = f"""CONTEXT FOR CRITIQUING CHUNK {chunk_number}:
 
 {'='*80}
 {''.join(context_parts)}
@@ -191,21 +191,21 @@ and previous chapters for continuity checking."""
 
         return {
             "success": True,
-            "message": f"Loaded context for critiquing Chapter {chapter_number}.",
+            "message": f"Loaded context for critiquing Chunk {chunk_number}.",
             "content": formatted_content
         }
 
 
-class CritiqueChapterTool(BaseTool):
-    """Tool for providing critique feedback on a chapter."""
+class CritiqueChunkTool(BaseTool):
+    """Tool for providing critique feedback on a chunk."""
 
     @property
     def name(self) -> str:
-        return "critique_chapter"
+        return "critique_chunk"
 
     @property
     def description(self) -> str:
-        return """Provides detailed critique of a chapter. Document issues with plot consistency, \
+        return """Provides detailed critique of a chunk. Document issues with plot consistency, \
 character behavior, prose quality, pacing, or adherence to the plan. This critique will be saved."""
 
     @property
@@ -213,29 +213,29 @@ character behavior, prose quality, pacing, or adherence to the plan. This critiq
         return {
             "type": "object",
             "properties": {
-                "chapter_number": {
+                "chunk_number": {
                     "type": "integer",
-                    "description": "The chapter number being critiqued"
+                    "description": "The chunk number being critiqued"
                 },
                 "critique_text": {
                     "type": "string",
                     "description": "Detailed critique feedback"
                 }
             },
-            "required": ["chapter_number", "critique_text"]
+            "required": ["chunk_number", "critique_text"]
         }
 
     def execute(
         self,
-        chapter_number: int,
+        chunk_number: int,
         critique_text: str,
         state: Optional[NovelState] = None
     ) -> Dict[str, Any]:
         """
-        Saves chapter critique.
+        Saves chunk critique.
 
         Args:
-            chapter_number: Chapter number
+            chunk_number: Chunk number
             critique_text: Critique feedback
             state: Optional novel state to update
 
@@ -251,22 +251,22 @@ character behavior, prose quality, pacing, or adherence to the plan. This critiq
 
         # Determine critique version
         version = 1
-        if state and chapter_number in state.chapter_critique_iterations:
-            version = state.chapter_critique_iterations[chapter_number] + 1
-            state.chapter_critique_iterations[chapter_number] = version
+        if state and chunk_number in state.chunk_critique_iterations:
+            version = state.chunk_critique_iterations[chunk_number] + 1
+            state.chunk_critique_iterations[chunk_number] = version
         elif state:
-            state.chapter_critique_iterations[chapter_number] = 1
+            state.chunk_critique_iterations[chunk_number] = 1
 
         # Save critique
         critique_dir = os.path.join(project_folder, "critiques")
         os.makedirs(critique_dir, exist_ok=True)
 
-        filename = f"chapter_{chapter_number:02d}_critique_v{version}.md"
+        filename = f"chunk_{chunk_number:02d}_critique_v{version}.md"
         file_path = os.path.join(critique_dir, filename)
 
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(f"# Chapter {chapter_number} Critique - Version {version}\n\n")
+                f.write(f"# Chunk {chunk_number} Critique - Version {version}\n\n")
                 f.write(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                 f.write(f"---\n\n")
                 f.write(critique_text)
@@ -277,11 +277,11 @@ character behavior, prose quality, pacing, or adherence to the plan. This critiq
 
             return {
                 "success": True,
-                "message": f"Critique saved for Chapter {chapter_number} (version {version}).",
+                "message": f"Critique saved for Chunk {chunk_number} (version {version}).",
                 "file_path": file_path,
                 "version": version,
-                "chapter_number": chapter_number,
-                "next_step": "Use approve_chapter to accept it or request_revision to send back for improvements"
+                "chunk_number": chunk_number,
+                "next_step": "Use approve_chunk to accept it or request_revision to send back for improvements"
             }
 
         except Exception as e:
@@ -291,46 +291,46 @@ character behavior, prose quality, pacing, or adherence to the plan. This critiq
             }
 
 
-class ApproveChapterTool(BaseTool):
-    """Tool for approving a chapter and moving to next chapter or completion."""
+class ApproveChunkTool(BaseTool):
+    """Tool for approving a chunk and moving to next chunk or completion."""
 
     @property
     def name(self) -> str:
-        return "approve_chapter"
+        return "approve_chunk"
 
     @property
     def description(self) -> str:
-        return """Approves a chapter, marking it as complete. If there are more chapters to write, \
-transitions back to writing phase for the next chapter. If this is the last chapter, completes the novel."""
+        return """Approves a chunk, marking it as complete. If there are more chunks to write, \
+transitions back to writing phase for the next chunk. If this is the last chunk, completes the novel."""
 
     @property
     def parameters(self) -> Dict[str, Any]:
         return {
             "type": "object",
             "properties": {
-                "chapter_number": {
+                "chunk_number": {
                     "type": "integer",
-                    "description": "The chapter number being approved"
+                    "description": "The chunk number being approved"
                 },
                 "approval_notes": {
                     "type": "string",
-                    "description": "Notes about why the chapter is approved"
+                    "description": "Notes about why the chunk is approved"
                 }
             },
-            "required": ["chapter_number", "approval_notes"]
+            "required": ["chunk_number", "approval_notes"]
         }
 
     def execute(
         self,
-        chapter_number: int,
+        chunk_number: int,
         approval_notes: str,
         state: Optional[NovelState] = None
     ) -> Dict[str, Any]:
         """
-        Approves a chapter.
+        Approves a chunk.
 
         Args:
-            chapter_number: Chapter number
+            chunk_number: Chunk number
             approval_notes: Approval notes
             state: Optional novel state to update
 
@@ -348,12 +348,12 @@ transitions back to writing phase for the next chapter. If this is the last chap
         approval_dir = os.path.join(project_folder, "critiques")
         os.makedirs(approval_dir, exist_ok=True)
 
-        filename = f"chapter_{chapter_number:02d}_approval.md"
+        filename = f"chunk_{chunk_number:02d}_approval.md"
         file_path = os.path.join(approval_dir, filename)
 
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(f"# Chapter {chapter_number} Approval\n\n")
+                f.write(f"# Chunk {chunk_number} Approval\n\n")
                 f.write(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                 f.write(f"**Status:** APPROVED\n\n")
                 f.write(f"---\n\n")
@@ -365,34 +365,34 @@ transitions back to writing phase for the next chapter. If this is the last chap
             next_phase_msg = ""
 
             if state:
-                # Mark chapter as completed and approved
-                if chapter_number not in state.chapters_completed:
-                    state.chapters_completed.append(chapter_number)
-                if chapter_number not in state.chapters_approved:
-                    state.chapters_approved.append(chapter_number)
+                # Mark chunk as completed and approved
+                if chunk_number not in state.chunks_completed:
+                    state.chunks_completed.append(chunk_number)
+                if chunk_number not in state.chunks_approved:
+                    state.chunks_approved.append(chunk_number)
 
                 # Check if novel is complete
-                if len(state.chapters_approved) >= state.total_chapters:
+                if len(state.chunks_approved) >= state.total_chunks:
                     update_phase(state, Phase.COMPLETE)
                     is_complete = True
-                    next_phase_msg = "All chapters complete! Novel generation finished."
+                    next_phase_msg = "All chunks complete! Novel generation finished."
                 else:
-                    # Move to next chapter
-                    increment_chapter(state)
+                    # Move to next chunk
+                    increment_chunk(state)
                     update_phase(state, Phase.WRITING)
-                    next_phase_msg = f"Chapter {chapter_number} approved. Moving to Chapter {state.current_chapter}."
+                    next_phase_msg = f"Chunk {chunk_number} approved. Moving to Chunk {state.current_chunk}."
 
                 save_state(state)
 
             return {
                 "success": True,
-                "message": f"Chapter {chapter_number} approved!",
+                "message": f"Chunk {chunk_number} approved!",
                 "file_path": file_path,
                 "is_complete": is_complete,
                 "transition": {
                     "to_phase": "COMPLETE" if is_complete else "WRITING",
                     "data": {
-                        "chapter_number": chapter_number,
+                        "chunk_number": chunk_number,
                         "approval_notes": approval_notes
                     }
                 },
@@ -402,12 +402,12 @@ transitions back to writing phase for the next chapter. If this is the last chap
         except Exception as e:
             return {
                 "success": False,
-                "message": f"Error approving chapter: {str(e)}"
+                "message": f"Error approving chunk: {str(e)}"
             }
 
 
 class RequestRevisionTool(BaseTool):
-    """Tool for requesting revisions to a chapter."""
+    """Tool for requesting revisions to a chunk."""
 
     @property
     def name(self) -> str:
@@ -415,37 +415,37 @@ class RequestRevisionTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return """Requests revisions to a chapter. Sends the chapter back to the writing phase \
-with specific revision notes. The writer will revise and resubmit the chapter."""
+        return """Requests revisions to a chunk. Sends the chunk back to the writing phase \
+with specific revision notes. The writer will revise and resubmit the chunk."""
 
     @property
     def parameters(self) -> Dict[str, Any]:
         return {
             "type": "object",
             "properties": {
-                "chapter_number": {
+                "chunk_number": {
                     "type": "integer",
-                    "description": "The chapter number requiring revision"
+                    "description": "The chunk number requiring revision"
                 },
                 "revision_notes": {
                     "type": "string",
                     "description": "Specific notes about what needs to be revised"
                 }
             },
-            "required": ["chapter_number", "revision_notes"]
+            "required": ["chunk_number", "revision_notes"]
         }
 
     def execute(
         self,
-        chapter_number: int,
+        chunk_number: int,
         revision_notes: str,
         state: Optional[NovelState] = None
     ) -> Dict[str, Any]:
         """
-        Requests chapter revision.
+        Requests chunk revision.
 
         Args:
-            chapter_number: Chapter number
+            chunk_number: Chunk number
             revision_notes: Revision requirements
             state: Optional novel state to update
 
@@ -462,12 +462,12 @@ with specific revision notes. The writer will revise and resubmit the chapter.""
         # Check iteration limit
         if state:
             max_iterations = 2  # Default, should come from config
-            current_iterations = state.chapter_critique_iterations.get(chapter_number, 0)
+            current_iterations = state.chunk_critique_iterations.get(chunk_number, 0)
 
             if current_iterations >= max_iterations:
                 return {
                     "success": False,
-                    "message": f"Maximum critique iterations ({max_iterations}) reached for Chapter {chapter_number}. Auto-approving to prevent infinite loop.",
+                    "message": f"Maximum critique iterations ({max_iterations}) reached for Chunk {chunk_number}. Auto-approving to prevent infinite loop.",
                     "auto_approve": True
                 }
 
@@ -475,13 +475,13 @@ with specific revision notes. The writer will revise and resubmit the chapter.""
         revision_dir = os.path.join(project_folder, "critiques")
         os.makedirs(revision_dir, exist_ok=True)
 
-        version = state.chapter_critique_iterations.get(chapter_number, 0) if state else 0
-        filename = f"chapter_{chapter_number:02d}_revision_request_v{version}.md"
+        version = state.chunk_critique_iterations.get(chunk_number, 0) if state else 0
+        filename = f"chunk_{chunk_number:02d}_revision_request_v{version}.md"
         file_path = os.path.join(revision_dir, filename)
 
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(f"# Chapter {chapter_number} Revision Request - Version {version}\n\n")
+                f.write(f"# Chunk {chunk_number} Revision Request - Version {version}\n\n")
                 f.write(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                 f.write(f"**Status:** REVISION REQUESTED\n\n")
                 f.write(f"---\n\n")
@@ -495,17 +495,17 @@ with specific revision notes. The writer will revise and resubmit the chapter.""
 
             return {
                 "success": True,
-                "message": f"Revision requested for Chapter {chapter_number}. Transitioning back to writing phase.",
+                "message": f"Revision requested for Chunk {chunk_number}. Transitioning back to writing phase.",
                 "file_path": file_path,
                 "transition": {
                     "to_phase": "WRITING",
                     "data": {
-                        "chapter_number": chapter_number,
+                        "chunk_number": chunk_number,
                         "revision_notes": revision_notes,
                         "iteration": version
                     }
                 },
-                "next_phase": f"The Creative Writer will now revise Chapter {chapter_number} based on feedback."
+                "next_phase": f"The Creative Writer will now revise Chunk {chunk_number} based on feedback."
             }
 
         except Exception as e:
@@ -519,9 +519,9 @@ with specific revision notes. The writer will revise and resubmit the chapter.""
 def get_write_critique_tools():
     """Get all write critique phase tools."""
     return [
-        LoadChapterForReviewTool(),
+        LoadChunkForReviewTool(),
         LoadContextForCritiqueTool(),
-        CritiqueChapterTool(),
-        ApproveChapterTool(),
+        CritiqueChunkTool(),
+        ApproveChunkTool(),
         RequestRevisionTool()
     ]

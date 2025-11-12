@@ -1,7 +1,7 @@
 /**
  * Approval Modal Component
  *
- * Modal dialog for approving or rejecting checkpoints (plan, chapters).
+ * Modal dialog for approving or rejecting checkpoints (plan, chunks).
  */
 
 import { useState } from 'react';
@@ -32,16 +32,16 @@ export function ApprovalModal({
             'summary.txt - Story summary',
             'dramatis_personae.txt - Character descriptions',
             'story_structure.txt - Three-act structure',
-            'plot_outline.txt - Chapter-by-chapter outline',
+            'plot_outline.txt - Chunk-by-chunk outline',
           ],
         };
-      case 'chapter':
+      case 'chunk':
         return {
-          title: `Chapter ${approvalData?.chapter_number || '?'} Approval`,
+          title: `Chunk ${approvalData?.chunk_number || '?'} Approval`,
           icon: FileText,
           description:
-            'This chapter has been written and reviewed. Please approve it to continue to the next chapter.',
-          files: [`chapter_${approvalData?.chapter_number || '?'}.txt - Chapter content`],
+            'This chunk has been written and reviewed. Please approve it to continue to the next chunk.',
+          files: [`chunk_${approvalData?.chunk_number || '?'}.txt - Chunk content`],
         };
       default:
         return {

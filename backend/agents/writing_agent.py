@@ -1,7 +1,7 @@
 """
 Writing Agent (Creative Writer) for Phase 3.
 
-This agent writes complete, polished chapters based on the approved plan,
+This agent writes complete, polished chunks based on the approved plan,
 maintaining consistent voice and following the outline.
 """
 
@@ -21,10 +21,10 @@ class WritingAgent(BaseAgent):
     Creative Writer agent for the writing phase.
 
     Responsibilities:
-    - Write complete, substantial chapters
+    - Write complete, substantial chunks
     - Follow the approved plan and outline
     - Maintain consistent voice and style
-    - Ensure continuity with previous chapters
+    - Ensure continuity with previous chunks
     - Create engaging, polished prose
     """
 
@@ -35,8 +35,8 @@ class WritingAgent(BaseAgent):
         Returns:
             System prompt for writing phase
         """
-        # Get current chapter number
-        chapter_num = self.state.current_chapter if self.state.current_chapter > 0 else 1
+        # Get current chunk number
+        chunk_num = self.state.current_chunk if self.state.current_chunk > 0 else 1
 
         # Get writing sample if configured
         writing_sample_text = None
@@ -49,7 +49,7 @@ class WritingAgent(BaseAgent):
         return get_custom_prompt_or_default(
             'writing',
             self.config,
-            chapter_num=chapter_num,
+            chunk_num=chunk_num,
             writing_sample=writing_sample_text
         )
 
@@ -62,23 +62,23 @@ class WritingAgent(BaseAgent):
         """
         return get_writing_tools()
 
-    def get_initial_prompt(self, chapter_number: Optional[int] = None) -> str:
+    def get_initial_prompt(self, chunk_number: Optional[int] = None) -> str:
         """
-        Get the initial prompt to start writing a chapter.
+        Get the initial prompt to start writing a chunk.
 
         Args:
-            chapter_number: Specific chapter to write (or uses state.current_chapter)
+            chunk_number: Specific chunk to write (or uses state.current_chunk)
 
         Returns:
             Initial user prompt
         """
-        if chapter_number is None:
-            chapter_number = self.state.current_chapter if self.state.current_chapter > 0 else 1
+        if chunk_number is None:
+            chunk_number = self.state.current_chunk if self.state.current_chunk > 0 else 1
 
         # Check if this is a revision
         is_revision = False
-        if chapter_number in self.state.chapter_critique_iterations:
-            is_revision = self.state.chapter_critique_iterations[chapter_number] > 0
+        if chunk_number in self.state.chunk_critique_iterations:
+            is_revision = self.state.chunk_critique_iterations[chunk_number] > 0
 
         revision_note = ""
         if is_revision:
@@ -88,11 +88,11 @@ class WritingAgent(BaseAgent):
 
             project_folder = get_active_project_folder()
             if project_folder:
-                version = self.state.chapter_critique_iterations[chapter_number]
+                version = self.state.chunk_critique_iterations[chunk_number]
                 revision_file = os.path.join(
                     project_folder,
                     "critiques",
-                    f"chapter_{chapter_number:02d}_revision_request_v{version-1}.md"
+                    f"chunk_{chunk_number:02d}_revision_request_v{version-1}.md"
                 )
                 if os.path.exists(revision_file):
                     try:
@@ -102,21 +102,21 @@ class WritingAgent(BaseAgent):
                     except:
                         pass
 
-        return f"""{'REVISION: ' if is_revision else ''}Please write Chapter {chapter_number} of the novel.
+        return f"""{'REVISION: ' if is_revision else ''}Please write Chunk {chunk_number} of the novel.
 {revision_note}
 Your workflow:
 1. Use load_approved_plan to refresh your memory of the story blueprint
-2. Use get_chapter_context to get the specific outline for Chapter {chapter_number}
-3. Use review_previous_writing if you need to check earlier chapters for continuity
-4. Write a complete, polished chapter (2,500-5,000+ words)
-5. Use write_chapter to save your work
-6. Use finalize_chapter to submit it for critique
+2. Use get_chunk_context to get the specific outline for Chunk {chunk_number}
+3. Use review_previous_writing if you need to check earlier chunks for continuity
+4. Write a complete, polished chunk (2,500-5,000+ words)
+5. Use write_chunk to save your work
+6. Use finalize_chunk to submit it for critique
 
 Remember:
 - Follow the approved plan and outline
 - Maintain consistent voice and style throughout
 - Show, don't tell - use vivid scenes and dialogue
-- Every chapter should advance plot, develop characters, or explore themes
+- Every chunk should advance plot, develop characters, or explore themes
 - Write complete, publication-quality prose
 - Don't hold back on length - tell the story fully
 

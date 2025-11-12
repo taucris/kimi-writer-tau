@@ -9,11 +9,11 @@ import { Settings, Save, X, AlertCircle, Zap, Info } from 'lucide-react';
 import { listModels } from '../services/api';
 
 const NOVEL_LENGTHS = [
-  { value: 'short_story', label: 'Short Story', chapters: 3, words: '3k-10k' },
-  { value: 'novella', label: 'Novella', chapters: 8, words: '20k-50k' },
-  { value: 'novel', label: 'Novel', chapters: 15, words: '50k-110k' },
-  { value: 'long_novel', label: 'Long Novel', chapters: 30, words: '110k-200k' },
-  { value: 'ai_decide', label: 'Let AI Decide', chapters: '?', words: 'Variable' },
+  { value: 'short_story', label: 'Short Story', words: '3k-10k' },
+  { value: 'novella', label: 'Novella', words: '20k-50k' },
+  { value: 'novel', label: 'Novel', words: '50k-110k' },
+  { value: 'very_long_novel', label: 'Very Long Novel', words: '110k-200k' },
+  { value: 'custom', label: 'Custom Word Count', words: 'Specify below' },
 ];
 
 export function ConfigPanel({
@@ -29,13 +29,14 @@ export function ConfigPanel({
     theme: '',
     model_id: 'kimi-k2-thinking',  // Default model
     novel_length: 'novel',
+    custom_word_count: null,
     genre: '',
     writing_sample_id: null,
     custom_writing_sample: '',
     max_plan_critique_iterations: 2,
     max_write_critique_iterations: 2,
     require_plan_approval: true,
-    require_chapter_approval: false,
+    require_chunk_approval: false,
     ...initialConfig,
   });
 
@@ -82,6 +83,12 @@ export function ConfigPanel({
 
     if (!config.theme?.trim()) {
       newErrors.theme = 'Theme is required';
+    }
+
+    if (config.novel_length === 'custom') {
+      if (!config.custom_word_count || config.custom_word_count < 1000) {
+        newErrors.custom_word_count = 'Word count must be at least 1,000 words';
+      }
     }
 
     if (config.custom_writing_sample && config.custom_writing_sample.length < 100) {
@@ -244,7 +251,7 @@ export function ConfigPanel({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Novel Length
+                  Work Length
                 </label>
                 <select
                   value={config.novel_length}
@@ -253,14 +260,40 @@ export function ConfigPanel({
                 >
                   {NOVEL_LENGTHS.map((length) => (
                     <option key={length.value} value={length.value}>
-                      {length.label} ({length.chapters} chapters)
+                      {length.label} ({length.words})
                     </option>
                   ))}
                 </select>
                 <p className="mt-1 text-sm text-gray-600">
-                  This project will generate approximately {selectedLength?.chapters} chapters
+                  The AI will structure the work appropriately for the target length
                 </p>
               </div>
+
+              {config.novel_length === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Target Word Count *
+                  </label>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="1000"
+                    value={config.custom_word_count || ''}
+                    onChange={(e) => handleChange('custom_word_count', parseInt(e.target.value) || null)}
+                    placeholder="e.g., 75000"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.custom_word_count ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors.custom_word_count ? (
+                    <p className="mt-1 text-sm text-red-600">{errors.custom_word_count}</p>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-600">
+                      The AI will aim to be within 1,000 words of this target
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -351,7 +384,7 @@ export function ConfigPanel({
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="mt-1 text-sm text-gray-600">
-                  Number of times each chapter will be critiqued and revised
+                  Number of times each chunk will be critiqued and revised
                 </p>
               </div>
             </div>
@@ -383,18 +416,18 @@ export function ConfigPanel({
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={config.require_chapter_approval}
+                  checked={config.require_chunk_approval}
                   onChange={(e) =>
-                    handleChange('require_chapter_approval', e.target.checked)
+                    handleChange('require_chunk_approval', e.target.checked)
                   }
                   className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-900">
-                    Require Chapter Approval
+                    Require Chunk Approval
                   </div>
                   <p className="text-sm text-gray-600">
-                    Pause after each chapter for manual review
+                    Pause after each chunk for manual review
                   </p>
                 </div>
               </label>
@@ -402,16 +435,16 @@ export function ConfigPanel({
           </div>
 
           {/* Warning for no approvals */}
-          {!config.require_plan_approval && !config.require_chapter_approval && (
+          {!config.require_plan_approval && !config.require_chunk_approval && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex gap-3">
                 <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                 <div className="text-sm text-yellow-800">
                   <p className="font-medium">Autonomous Mode</p>
                   <p className="mt-1">
-                    With no approval checkpoints, the system will generate the entire novel
+                    With no approval checkpoints, the system will generate the entire work
                     autonomously. You won't be able to review or modify the plan or individual
-                    chapters during generation.
+                    chunks during generation.
                   </p>
                 </div>
               </div>

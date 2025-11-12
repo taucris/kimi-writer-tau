@@ -24,7 +24,7 @@ class PlanningAgent(BaseAgent):
     - Create high-level story summary
     - Develop character profiles
     - Define narrative structure
-    - Create detailed chapter-by-chapter outline
+    - Create detailed chunk-by-chunk outline
     """
 
     def get_system_prompt(self) -> str:
@@ -71,8 +71,8 @@ Follow the planning workflow:
 1. Create the project folder
 2. Create a story summary (concept, themes, conflict, arc)
 3. Create dramatis personae (character profiles)
-4. Create story structure (POV, timeline, chapter count, pacing)
-5. Create a detailed plot outline (chapter-by-chapter breakdown)
+4. Create story structure (POV, timeline, chunk count, pacing)
+5. Create a detailed plot outline (chunk-by-chunk breakdown)
 6. Finalize the plan
 
 Take your time to think deeply about the narrative structure, character arcs, and thematic elements. Create a solid foundation for writing."""

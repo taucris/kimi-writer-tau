@@ -91,10 +91,10 @@ class CLIProgressMonitor:
             print(f"  - Characters: output/{project_id}/dramatis_personae.txt")
             print(f"  - Structure: output/{project_id}/story_structure.txt")
             print(f"  - Outline: output/{project_id}/plot_outline.txt")
-        elif approval_type == "chapter":
-            chapter_num = data.get("chapter_number", "?")
-            print(f"\nChapter {chapter_num} has been written. Please review:")
-            print(f"  - output/{project_id}/chapter_{chapter_num}.txt")
+        elif approval_type == "chunk":
+            chunk_num = data.get("chunk_number", "?")
+            print(f"\nChunk {chunk_num} has been written. Please review:")
+            print(f"  - output/{project_id}/chunk_{chunk_num}.txt")
 
         while True:
             response = input("\nApprove? (y/n): ").strip().lower()
@@ -106,10 +106,10 @@ class CLIProgressMonitor:
                     state.pending_approval = None
                     if approval_type == "plan":
                         state.plan_approved = True
-                    elif approval_type == "chapter":
-                        chapter_num = data.get("chapter_number")
-                        if chapter_num and chapter_num not in state.chapters_approved:
-                            state.chapters_approved.append(chapter_num)
+                    elif approval_type == "chunk":
+                        chunk_num = data.get("chunk_number")
+                        if chunk_num and chunk_num not in state.chunks_approved:
+                            state.chunks_approved.append(chunk_num)
                     save_state(state)
                 break
             elif response in ['n', 'no']:
@@ -136,7 +136,7 @@ class CLIProgressMonitor:
         print(f"Project: {project_id}")
         print(f"Total iterations: {stats.get('total_iterations', 0)}")
         print(f"Time elapsed: {stats.get('time_elapsed_seconds', 0):.1f}s")
-        print(f"Chapters written: {stats.get('chapters_written', 0)}")
+        print(f"Chunks written: {stats.get('chunks_written', 0)}")
         print(f"\nOutput directory: output/{project_id}/")
         print(f"{'=' * 60}\n")
 
@@ -181,7 +181,7 @@ def create_config_from_args(args) -> tuple[NovelConfig, NovelState]:
         writing_sample=writing_sample_config,
         checkpoints=CheckpointConfig(
             require_plan_approval=args.require_plan_approval,
-            require_chapter_approval=args.require_chapter_approval
+            require_chunk_approval=args.require_chunk_approval
         ),
         agent=AgentConfig(
             max_plan_critique_iterations=args.max_plan_critique,
@@ -205,7 +205,7 @@ def create_config_from_args(args) -> tuple[NovelConfig, NovelState]:
     # Create initial state
     state = NovelState(
         project_id=project_id,
-        total_chapters=config.novel_length.num_chapters
+        total_chunks=config.novel_length.num_chunks
     )
     save_state(state)
     logger.info(f"Initial state saved for project {project_id}")
@@ -351,10 +351,10 @@ For more information, visit: https://github.com/yourusername/kimi-writer
     )
 
     parser.add_argument(
-        "--require-chapter-approval",
+        "--require-chunk-approval",
         action="store_true",
         default=False,
-        help="Require approval after each chapter (default: False)"
+        help="Require approval after each chunk (default: False)"
     )
 
     parser.add_argument(
@@ -368,7 +368,7 @@ For more information, visit: https://github.com/yourusername/kimi-writer
         "--max-write-critique",
         type=int,
         default=2,
-        help="Max write critique iterations per chapter (default: 2)"
+        help="Max write critique iterations per chunk (default: 2)"
     )
 
     parser.add_argument(
