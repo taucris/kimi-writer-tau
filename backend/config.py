@@ -20,11 +20,11 @@ from pydantic import BaseModel, Field, field_validator
 
 class NovelLength(str, Enum):
     """Enum for novel length options."""
-    SHORT_STORY = "short_story"  # 3,000-10,000 words (1-5 chapters)
-    NOVELLA = "novella"  # 20,000-50,000 words (5-15 chapters)
-    NOVEL = "novel"  # 50,000-110,000 words (15-30 chapters)
-    LONG_NOVEL = "long_novel"  # 110,000-200,000 words (30-50 chapters)
-    AI_DECIDE = "ai_decide"  # Let AI determine based on story needs
+    SHORT_STORY = "short_story"  # 3,000-10,000 words
+    NOVELLA = "novella"  # 20,000-50,000 words
+    NOVEL = "novel"  # 50,000-110,000 words
+    VERY_LONG_NOVEL = "very_long_novel"  # 110,000-200,000 words
+    CUSTOM = "custom"  # Custom word count specified by user
 
 
 class Phase(str, Enum):
@@ -55,8 +55,8 @@ class CheckpointConfig(BaseModel):
     """Configuration for approval checkpoints."""
     require_plan_approval: bool = True  # Approval after planning phase
     require_plan_critique_approval: bool = False  # Approval after each plan critique
-    require_chapter_approval: bool = False  # Approval after each chapter
-    require_chapter_critique_approval: bool = False  # Approval after each critique
+    require_chunk_approval: bool = False  # Approval after each chunk
+    require_chunk_critique_approval: bool = False  # Approval after each critique
 
 
 class AgentConfig(BaseModel):
@@ -177,6 +177,7 @@ class NovelConfig(BaseModel):
 
     # Novel parameters
     novel_length: NovelLength = NovelLength.NOVEL
+    custom_word_count: Optional[int] = None  # Custom word count when novel_length is CUSTOM
     theme: str = ""  # User's initial prompt/theme
     genre: Optional[str] = None
 

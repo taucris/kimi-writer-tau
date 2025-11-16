@@ -1,7 +1,7 @@
 /**
  * Progress Dashboard Component
  *
- * Displays current generation progress, phase, chapter info, and statistics.
+ * Displays current generation progress, phase, chunk info, and statistics.
  */
 
 import { CheckCircle, Circle, Clock, FileText, Zap } from 'lucide-react';
@@ -9,9 +9,9 @@ import { CheckCircle, Circle, Clock, FileText, Zap } from 'lucide-react';
 export function ProgressDashboard({
   phase,
   progress,
-  currentChapter,
-  totalChapters,
-  chaptersCompleted,
+  currentChunk,
+  totalChunks,
+  chunksCompleted,
   isGenerating,
   isPaused,
   tokenCount,
@@ -23,7 +23,7 @@ export function ProgressDashboard({
     { name: 'PLANNING', label: 'Planning', icon: FileText },
     { name: 'PLAN_CRITIQUE', label: 'Plan Review', icon: CheckCircle },
     { name: 'WRITING', label: 'Writing', icon: Zap },
-    { name: 'WRITE_CRITIQUE', label: 'Chapter Review', icon: CheckCircle },
+    { name: 'WRITE_CRITIQUE', label: 'Chunk Review', icon: CheckCircle },
   ];
 
   const getCurrentPhaseIndex = () => {
@@ -117,24 +117,24 @@ export function ProgressDashboard({
         </div>
       </div>
 
-      {/* Chapter Progress (if in writing phase) */}
-      {phase === 'WRITING' && totalChapters > 0 && (
+      {/* Chunk Progress (if in writing phase) */}
+      {phase === 'WRITING' && totalChunks > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Chapter Progress</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Chunk Progress</h3>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">
-                Chapter {currentChapter} of {totalChapters}
+                Chunk {currentChunk} of {totalChunks}
               </span>
               <span className="text-sm font-medium text-gray-900">
-                {chaptersCompleted.length} completed
+                {chunksCompleted.length} completed
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-green-600 h-full rounded-full transition-all duration-300"
                 style={{
-                  width: `${(chaptersCompleted.length / totalChapters) * 100}%`,
+                  width: `${(chunksCompleted.length / totalChunks) * 100}%`,
                 }}
               />
             </div>

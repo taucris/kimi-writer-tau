@@ -14,11 +14,11 @@ import { useNovelStore } from '../store/novelStore';
 import * as api from '../services/api';
 
 const NOVEL_LENGTHS = [
-  { value: 'short_story', label: 'Short Story', chapters: 3 },
-  { value: 'novella', label: 'Novella', chapters: 8 },
-  { value: 'novel', label: 'Novel', chapters: 15 },
-  { value: 'long_novel', label: 'Long Novel', chapters: 30 },
-  { value: 'ai_decide', label: "Kimi's Choice", chapters: '?' },
+  { value: 'short_story', label: 'Short Story', chunks: 3 },
+  { value: 'novella', label: 'Novella', chunks: 8 },
+  { value: 'novel', label: 'Novel', chunks: 15 },
+  { value: 'long_novel', label: 'Long Novel', chunks: 30 },
+  { value: 'ai_decide', label: "Kimi's Choice", chunks: '?' },
 ];
 
 export function Home() {
@@ -40,7 +40,7 @@ export function Home() {
     { name: '', sample: '' },
   ]);
   const [requirePlanApproval, setRequirePlanApproval] = useState(true);
-  const [requireChapterApproval, setRequireChapterApproval] = useState(false);
+  const [requireChunkApproval, setRequireChunkApproval] = useState(false);
   const [qualityConfig, setQualityConfig] = useState({
     max_plan_critique_iterations: 2,
     max_write_critique_iterations: 2,
@@ -77,7 +77,7 @@ export function Home() {
         genre: genre.trim() || undefined,
         custom_writing_sample: selectedStyle?.sample || undefined,
         require_plan_approval: requirePlanApproval,
-        require_chapter_approval: requireChapterApproval,
+        require_chunk_approval: requireChunkApproval,
         ...qualityConfig,
       };
 
@@ -228,7 +228,7 @@ export function Home() {
                 >
                   {NOVEL_LENGTHS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label} ({option.chapters} chapters)
+                      {option.label} ({option.chunks} chunks)
                     </option>
                   ))}
                 </select>
@@ -288,12 +288,12 @@ export function Home() {
                   <div className="relative">
                     <input
                       type="checkbox"
-                      checked={requireChapterApproval}
-                      onChange={(e) => setRequireChapterApproval(e.target.checked)}
+                      checked={requireChunkApproval}
+                      onChange={(e) => setRequireChunkApproval(e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-6 h-6 border-2 border-obsidian-400 rounded-md peer-checked:bg-obsidian-900 peer-checked:border-obsidian-900 transition-all flex items-center justify-center">
-                      {requireChapterApproval && (
+                      {requireChunkApproval && (
                         <svg className="w-4 h-4 text-pearl-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
@@ -302,10 +302,10 @@ export function Home() {
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-body font-medium text-obsidian-900">
-                      Require Chapter Approval
+                      Require Chunk Approval
                     </div>
                     <p className="text-xs text-obsidian-600 font-body">
-                      Pause after each chapter for manual review
+                      Pause after each chunk for manual review
                     </p>
                   </div>
                 </label>

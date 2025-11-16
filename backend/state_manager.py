@@ -16,14 +16,14 @@ from backend.config import Phase
 
 class ApprovalRequest(BaseModel):
     """Pending approval request."""
-    type: str  # "plan", "plan_critique", "chapter", "chapter_critique"
+    type: str  # "plan", "plan_critique", "chunk", "chunk_critique"
     data: Dict[str, Any]  # Additional data for the approval
     requested_at: datetime = Field(default_factory=datetime.now)
 
 
 class DeviationLogEntry(BaseModel):
     """Log entry for plan deviations."""
-    chapter_number: Optional[int] = None
+    chunk_number: Optional[int] = None
     deviation_type: str  # "plot", "character", "structure"
     description: str
     timestamp: datetime = Field(default_factory=datetime.now)
@@ -54,11 +54,11 @@ class NovelState(BaseModel):
     plan_files_created: Dict[str, bool] = Field(default_factory=dict)  # {filename: exists}
 
     # Writing phase tracking
-    total_chapters: int = 0  # Determined during planning
-    current_chapter: int = 0  # Currently being worked on
-    chapters_completed: List[int] = Field(default_factory=list)
-    chapters_approved: List[int] = Field(default_factory=list)
-    chapter_critique_iterations: Dict[int, int] = Field(default_factory=dict)  # {chapter_num: count}
+    total_chunks: int = 0  # Determined during planning
+    current_chunk: int = 0  # Currently being worked on
+    chunks_completed: List[int] = Field(default_factory=list)
+    chunks_approved: List[int] = Field(default_factory=list)
+    chunk_critique_iterations: Dict[int, int] = Field(default_factory=dict)  # {chunk_num: count}
 
     # Approval system
     pending_approval: Optional[ApprovalRequest] = None
@@ -271,10 +271,10 @@ def approve_checkpoint(
     approval_type = state.pending_approval.type
     if approval_type == 'plan':
         state.plan_approved = True
-    elif approval_type.startswith('chapter_'):
-        chapter_num = state.pending_approval.data.get('chapter_number')
-        if chapter_num and chapter_num not in state.chapters_approved:
-            state.chapters_approved.append(chapter_num)
+    elif approval_type.startswith('chunk_'):
+        chunk_num = state.pending_approval.data.get('chunk_number')
+        if chunk_num and chunk_num not in state.chunks_approved:
+            state.chunks_approved.append(chunk_num)
 
     # Clear pending approval
     state.pending_approval = None
@@ -313,9 +313,9 @@ def reject_checkpoint(
     return state
 
 
-def increment_chapter(state: NovelState) -> NovelState:
+def increment_chunk(state: NovelState) -> NovelState:
     """
-    Move to next chapter.
+    Move to next chunk.
 
     Args:
         state: Current state
@@ -323,14 +323,14 @@ def increment_chapter(state: NovelState) -> NovelState:
     Returns:
         Updated state
     """
-    if state.current_chapter not in state.chapters_completed:
-        state.chapters_completed.append(state.current_chapter)
+    if state.current_chunk not in state.chunks_completed:
+        state.chunks_completed.append(state.current_chunk)
 
-    state.current_chapter += 1
+    state.current_chunk += 1
 
-    # Initialize critique iteration counter for new chapter
-    if state.current_chapter not in state.chapter_critique_iterations:
-        state.chapter_critique_iterations[state.current_chapter] = 0
+    # Initialize critique iteration counter for new chunk
+    if state.current_chunk not in state.chunk_critique_iterations:
+        state.chunk_critique_iterations[state.current_chunk] = 0
 
     return state
 
@@ -366,10 +366,10 @@ def get_progress_percentage(state: NovelState) -> float:
     # Add progress within current phase
     current_phase_progress = 0
     if state.phase == Phase.WRITING or state.phase == Phase.WRITE_CRITIQUE:
-        if state.total_chapters > 0:
-            chapter_progress = len(state.chapters_completed) / state.total_chapters
+        if state.total_chunks > 0:
+            chunk_progress = len(state.chunks_completed) / state.total_chunks
             writing_weight = phase_weights[Phase.WRITING] + phase_weights[Phase.WRITE_CRITIQUE]
-            current_phase_progress = chapter_progress * writing_weight
+            current_phase_progress = chunk_progress * writing_weight
     elif state.phase == Phase.PLAN_CRITIQUE:
         # Estimate progress within critique phase (up to 50% after first iteration)
         current_phase_progress = min(
@@ -385,7 +385,7 @@ def add_deviation(
     state: NovelState,
     deviation_type: str,
     description: str,
-    chapter_number: Optional[int] = None
+    chunk_number: Optional[int] = None
 ) -> NovelState:
     """
     Log a deviation from the plan.
@@ -394,13 +394,13 @@ def add_deviation(
         state: Current state
         deviation_type: Type of deviation
         description: Description of deviation
-        chapter_number: Chapter where deviation occurred
+        chunk_number: Chunk where deviation occurred
 
     Returns:
         Updated state
     """
     entry = DeviationLogEntry(
-        chapter_number=chapter_number,
+        chunk_number=chunk_number,
         deviation_type=deviation_type,
         description=description
     )

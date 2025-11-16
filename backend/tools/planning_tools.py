@@ -206,7 +206,7 @@ class CreateStoryStructureTool(BaseTool):
     @property
     def description(self) -> str:
         return """Creates the story structure file. Define POV (point of view), narrative timeline, \
-chapter count, pacing strategy, and structural elements (acts, parts, etc.)."""
+chunk count, pacing strategy, and structural elements (acts, parts, etc.)."""
 
     @property
     def parameters(self) -> Dict[str, Any]:
@@ -215,7 +215,7 @@ chapter count, pacing strategy, and structural elements (acts, parts, etc.)."""
             "properties": {
                 "structure_data": {
                     "type": "string",
-                    "description": "Complete structure information including POV, timeline, chapter count, and pacing"
+                    "description": "Complete structure information including POV, timeline, chunk count, and pacing"
                 }
             },
             "required": ["structure_data"]
@@ -252,12 +252,12 @@ chapter count, pacing strategy, and structural elements (acts, parts, etc.)."""
                 f.write(structure_data)
                 f.write("\n")
 
-            # Extract chapter count if mentioned (for state tracking)
-            # Simple heuristic: look for "X chapters" pattern
+            # Extract chunk count if mentioned (for state tracking)
+            # Simple heuristic: look for "X chunks" pattern
             import re
-            chapter_match = re.search(r'(\d+)\s+chapters?', structure_data, re.IGNORECASE)
-            if chapter_match and state:
-                state.total_chapters = int(chapter_match.group(1))
+            chunk_match = re.search(r'(\d+)\s+chunks?', structure_data, re.IGNORECASE)
+            if chunk_match and state:
+                state.total_chunks = int(chunk_match.group(1))
 
             # Update state
             if state:
@@ -279,7 +279,7 @@ chapter count, pacing strategy, and structural elements (acts, parts, etc.)."""
 
 
 class CreatePlotOutlineTool(BaseTool):
-    """Tool for creating chapter-by-chapter plot outline."""
+    """Tool for creating chunk-by-chunk plot outline."""
 
     @property
     def name(self) -> str:
@@ -287,8 +287,8 @@ class CreatePlotOutlineTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return """Creates the detailed plot outline file. Break down the story chapter by chapter \
-with key events, character moments, plot developments, and how each chapter advances the narrative."""
+        return """Creates the detailed plot outline file. Break down the story chunk by chunk \
+with key events, character moments, plot developments, and how each chunk advances the narrative."""
 
     @property
     def parameters(self) -> Dict[str, Any]:
@@ -297,7 +297,7 @@ with key events, character moments, plot developments, and how each chapter adva
             "properties": {
                 "outline_data": {
                     "type": "string",
-                    "description": "Complete chapter-by-chapter plot outline in markdown format"
+                    "description": "Complete chunk-by-chunk plot outline in markdown format"
                 }
             },
             "required": ["outline_data"]

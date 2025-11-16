@@ -38,7 +38,7 @@ export function FileViewer({
   };
 
   const getFileIcon = (filename) => {
-    if (filename.includes('chapter')) return '📖';
+    if (filename.includes('chunk')) return '📖';
     if (filename.includes('summary')) return '📋';
     if (filename.includes('outline')) return '📝';
     if (filename.includes('character') || filename.includes('dramatis')) return '👤';

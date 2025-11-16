@@ -83,7 +83,7 @@ export function ProjectBrowser() {
     { value: 'PLANNING', label: 'Planning' },
     { value: 'PLAN_CRITIQUE', label: 'Plan Review' },
     { value: 'WRITING', label: 'Writing' },
-    { value: 'WRITE_CRITIQUE', label: 'Chapter Review' },
+    { value: 'WRITE_CRITIQUE', label: 'Chunk Review' },
     { value: 'COMPLETE', label: 'Complete' },
   ];
 

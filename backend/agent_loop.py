@@ -549,8 +549,8 @@ class AgentLoop:
             "total_iterations": self.state.total_iterations,
             "time_elapsed_seconds": elapsed,
             "phases_completed": len(self.state.generation_stats.get("phase_transitions", [])),
-            "chapters_written": len(self.state.chapters_completed),
-            "chapters_approved": len(self.state.chapters_approved),
+            "chunks_written": len(self.state.chunks_completed),
+            "chunks_approved": len(self.state.chunks_approved),
             "progress_percentage": get_progress_percentage(self.state)
         }
 

@@ -402,11 +402,11 @@ class ReviseStructureTool(BaseTool):
                 f.write(structure_updates)
                 f.write("\n")
 
-            # Update chapter count if changed
+            # Update chunk count if changed
             import re
-            chapter_match = re.search(r'(\d+)\s+chapters?', structure_updates, re.IGNORECASE)
-            if chapter_match and state:
-                state.total_chapters = int(chapter_match.group(1))
+            chunk_match = re.search(r'(\d+)\s+chunks?', structure_updates, re.IGNORECASE)
+            if chunk_match and state:
+                state.total_chunks = int(chunk_match.group(1))
                 save_state(state)
 
             return {
