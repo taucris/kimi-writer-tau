@@ -5,128 +5,302 @@
 ### 1. Set Up Your Environment
 
 **Create `.env` file:**
-```powershell
+```bash
 # Copy the example
 cp env.example .env
 
-# Edit .env and add your Moonshot API key
-MOONSHOT_API_KEY=your-api-key-here
+# Edit .env and add your API key(s)
+# For Kimi models:
+MOONSHOT_API_KEY=your-moonshot-key-here
+
+# For DeepInfra models (GLM-4.6):
+DEEPINFRA_API_KEY=your-deepinfra-key-here
 ```
 
-Get your API key from: https://platform.moonshot.cn/
+**Get API Keys:**
+- Moonshot: https://platform.moonshot.cn/
+- DeepInfra: https://deepinfra.com/
+
+**Note:** You only need the API key for the model you plan to use!
 
 ### 2. Install Dependencies
 
-**Python dependencies:**
-```powershell
+```bash
 pip install -r requirements.txt
 ```
 
-**Frontend dependencies:**
-```powershell
-cd frontend
-npm install
-cd ..
+Or using uv (faster):
+```bash
+uv pip install -r requirements.txt
 ```
 
-### 3. Start the System
+### 3. Start the Interactive CLI
 
-**Option A: Single Command (Easiest)**
-```powershell
-python start.py
+Simply run:
+```bash
+python -m backend.cli
 ```
 
-**Option B: Double-click launcher**
-- Double-click `start.bat` in File Explorer
+You'll see a beautiful welcome screen! 🎉
 
-**Option C: Separate terminals**
-```powershell
-# Terminal 1 - Backend
-cd backend
-python main.py
+### 4. Answer the Configuration Questions
 
-# Terminal 2 - Frontend
-cd frontend
-npm run dev
+The CLI will guide you through setup:
+
+**1. Project Information**
+```
+? Project name: My First Novel
+? What's your novel about? (theme/premise): A detective solving a mysterious
+  case in a small Victorian town
+? Genre (optional): Mystery
 ```
 
-### 4. Open the Web Interface
+**2. Novel Length**
+```
+? Select length:
+  > Short Story (3,000-10,000 words, ~1-3 chunks)  ← Choose this for testing!
+    Novella (20,000-50,000 words, ~5-15 chunks)
+    Novel (50,000-110,000 words, ~15-30 chunks)
+    Very Long Novel (110,000-200,000 words, ~30-50 chunks)
+    Custom (specify word count)
+```
 
-Open your browser to: **http://localhost:5173**
+**3. AI Model**
+```
+? Select model:
+  > Kimi K2 Thinking (moonshot) - Has reasoning
+    GLM-4.6 (deepinfra) - $0.45/M in, $1.90/M out - Has reasoning
+```
 
-### 5. Create Your First Novel
+**4. Writing Style** (Optional)
+```
+? Would you like to use a writing sample? No  ← You can skip this for now
+```
 
-1. Click **"Start New Project"**
-2. Fill in the form:
-   - **Project Name**: "My First Novel"
-   - **Theme**: "A detective solving a mysterious case in a small town"
-   - **Length**: Choose "Short Story" (3 chapters) for testing
-   - **Genre**: "Mystery" (optional)
-3. Leave other settings as default
-4. Click **"Create Project"**
-5. Click **"Start Generation"** on the workspace page
-6. Watch the magic happen! 🎉
+**5. Approval Checkpoints**
+```
+? Require approval after planning phase? Yes  ← Recommended for first time!
+? Require approval after each chunk/chapter? No
+```
 
-## What You'll See
+**6. Quality Settings**
+```
+? Use default settings? (2 critique iterations for plan and chunks) Yes
+```
 
-### Progress Dashboard (Left Side)
-- Current phase (Planning → Plan Review → Writing → Chapter Review)
-- Overall progress percentage
-- Chapter progress
-- Token usage
-- Statistics
+**7. Review & Confirm**
+```
+Configuration Summary
+============================================================
+  Project Name                 my_first_novel
+  Theme                        A detective solving a mysterious case...
+  Genre                        Mystery
+  Length                       Short Story
+  AI Model                     Kimi K2 Thinking
+  Writing Sample               No
+  Plan Approval                Yes
+  Chunk Approval               No
 
-### Live Output (Main Area)
-- Agent reasoning (thinking process)
-- Generated content in real-time
-- Tool executions
+? Proceed with generation? Yes
+```
 
-### Files Tab
-- Browse all generated materials
-- View and download files
-- See plan, characters, outline, chapters
+### 5. Watch the Magic Happen! ✨
+
+You'll see real-time output as the AI works:
+
+```
+============================================================
+Phase Transition: PLANNING → PLAN_CRITIQUE
+============================================================
+
+🔧 Tool Call: write_summary
+   ✓ Story summary written successfully
+
+📊 Tokens: 12,453/200,000 (6.2%)
+
+[Agent reasoning appears in dim italic...]
+[Generated content appears in white...]
+```
+
+### 6. Approve the Plan (When Asked)
+
+When the plan is complete, you'll see:
+
+```
+============================================================
+⏸  Approval Required: PLAN
+============================================================
+
+━━━ Story Summary ━━━
+┌─────────────────────────────────────────────────────┐
+│ [Full summary displayed...]                         │
+└─────────────────────────────────────────────────────┘
+
+━━━ Character Profiles ━━━
+[Characters displayed...]
+
+━━━ Plot Outline ━━━
+[Outline displayed...]
+
+? Do you approve? Yes
+```
+
+### 7. Novel Complete! 🎉
+
+When finished:
+```
+============================================================
+🎉 Novel Generation Complete!
+============================================================
+
+Generation Statistics
+┌──────────────────────────┬──────────┐
+│ Metric                   │ Value    │
+├──────────────────────────┼──────────┤
+│ Total Iterations         │ 23       │
+│ Chunks Written           │ 3        │
+└──────────────────────────┴──────────┘
+
+📁 Output Directory: output/novel_20251116_225042/
+```
+
+### 8. Read Your Novel!
+
+Your files are in the output directory:
+
+```bash
+# Browse files
+ls output/novel_20251116_225042/
+
+# Read a chapter
+cat output/novel_20251116_225042/chunk_1.txt
+
+# Open in VS Code
+code output/novel_20251116_225042
+```
+
+Files generated:
+- `summary.txt` - Story summary
+- `dramatis_personae.txt` - Character profiles
+- `story_structure.txt` - Three-act structure
+- `plot_outline.txt` - Chapter outlines
+- `chunk_1.txt`, `chunk_2.txt`, etc. - Your chapters!
+- `conversation_log.json` - Full AI conversation
 
 ## Common First-Time Issues
 
-### "ModuleNotFoundError: No module named 'dotenv'"
-```powershell
+### "ModuleNotFoundError: No module named 'dotenv'" or similar
+```bash
 pip install -r requirements.txt
 ```
 
-### "MOONSHOT_API_KEY not found"
-Make sure you created `.env` file with your API key.
+### "MOONSHOT_API_KEY not found" or "DEEPINFRA_API_KEY not found"
+1. Make sure you created `.env` file in project root
+2. Add your API key: `MOONSHOT_API_KEY=your-key-here`
+3. Ensure no extra spaces or quotes around the key
 
-### Frontend shows "Cannot connect to backend"
-Make sure backend is running on port 8000:
-```powershell
-cd backend
-python main.py
+### "questionary not installed" or "rich not installed"
+```bash
+pip install questionary rich
 ```
 
-### Port already in use
-Kill the process using the port or change ports in config files.
+### Generation interrupted by accident (Ctrl+C)
+No worries! Your progress is saved. Resume with:
+```bash
+# List projects to find your project ID
+python -m backend.cli --list
+
+# Resume the project
+python -m backend.cli --resume PROJECT_ID
+```
+
+## Useful Commands
+
+**Start new novel:**
+```bash
+python -m backend.cli
+```
+
+**List all projects:**
+```bash
+python -m backend.cli --list
+```
+
+**Resume a project:**
+```bash
+python -m backend.cli --resume novel_20251116_225042
+```
+
+**Get help:**
+```bash
+python -m backend.cli --help
+```
 
 ## Next Steps
 
-- **Experiment with different lengths**: Try Flash Fiction (1 chapter) for quick tests
-- **Test approval checkpoints**: Enable "Require Plan Approval" to review before writing
-- **Try writing samples**: Paste a sample of your favorite author's style
-- **Browse your projects**: Use the "Browse Projects" button to see all your work
-- **Check the files**: Generated materials are in `output/[project-id]/`
+Once you're comfortable with the basics:
 
-## Need Help?
+- ✨ **Try different lengths**: Experiment with Novella or Novel
+- 🎨 **Use writing samples**: Guide the AI's style with your favorite authors
+- ✅ **Test full approval mode**: Enable chapter approval for granular control
+- 🚫 **Go fully autonomous**: Disable all approvals for hands-off generation
+- 🤖 **Try different models**: Compare Kimi vs GLM-4.6 output
+- 📝 **Explore custom prompts**: See `CLAUDE.md` for advanced customization
 
-- See full `README.md` for detailed documentation
-- See `UPGRADE.md` if upgrading from old version
-- Check `CLAUDE.md` for developer guide
-- Check `IMPLEMENTATION_PLAN.md` for architecture details
+## Tips for Best Results
 
-## Tips for Testing
+1. **Start Small**: Use Short Story (1-3 chunks) for your first few tests
+2. **Be Specific**: Detailed themes produce better results
+3. **Watch Token Usage**: Green = plenty of room, Yellow = getting full, Red = near limit
+4. **Enable Plan Approval**: Review the plan before writing starts (highly recommended!)
+5. **Read the Logs**: `conversation_log.json` shows the full AI dialogue
+6. **Experiment**: Try different genres, styles, and configurations!
 
-1. **Start small**: Use Flash Fiction or Short Story for first tests
-2. **Watch the output**: The live output shows you exactly what the AI is doing
-3. **Check token usage**: You have 200,000 tokens, compression happens at 180,000
-4. **Don't panic if it pauses**: It might be waiting for your approval if you enabled checkpoints
-5. **Files update in real-time**: Refresh the Files tab to see new content
+## What Each Phase Does
 
-Enjoy writing with AI! 🚀
+1. **PLANNING** (Story Architect)
+   - Creates story summary
+   - Develops character profiles
+   - Designs story structure
+   - Writes chapter outlines
+
+2. **PLAN_CRITIQUE** (Story Editor)
+   - Reviews planning materials
+   - Suggests improvements
+   - Approves or requests revisions
+
+3. **WRITING** (Creative Writer)
+   - Writes each chapter
+   - Follows the approved plan
+   - Maintains consistency
+
+4. **WRITE_CRITIQUE** (Chapter Editor)
+   - Reviews each chapter
+   - Checks quality and consistency
+   - Approves or requests revisions
+
+5. **COMPLETE**
+   - All done! 🎉
+
+## Keyboard Shortcuts
+
+- **Ctrl+C**: Pause and save (can resume later)
+- **ESC + Enter**: Finish multiline input (for theme, feedback, etc.)
+- **Arrow Keys**: Navigate select menus
+- **Enter**: Confirm selection
+- **Y/N**: Quick yes/no for confirmations
+
+## Need More Help?
+
+- **Full Documentation**: See `README.md`
+- **Developer Guide**: See `CLAUDE.md`
+- **Architecture Details**: See `implementation_plan.md`
+- **Terminal UI Guide**: See `TERMINAL_UI_COMPLETE.md`
+
+## Ready to Write?
+
+```bash
+python -m backend.cli
+```
+
+Happy writing! 🚀📚

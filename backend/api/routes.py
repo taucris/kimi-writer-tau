@@ -54,8 +54,10 @@ router = APIRouter()
 async def create_project(request: CreateProjectRequest):
     """Create a new novel project with configuration."""
     try:
-        # Generate project ID and sanitize name
-        project_id = generate_project_id()
+        logger.info(f"Creating project with data: {request.model_dump()}")
+
+        # Generate project ID (includes sanitized name + timestamp)
+        project_id = generate_project_id(request.project_name)
         sanitized_name = sanitize_project_name(request.project_name)
 
         # Get API keys from environment
@@ -118,13 +120,18 @@ async def create_project(request: CreateProjectRequest):
 
         # Set checkpoint config
         config.checkpoints.require_plan_approval = request.require_plan_approval
-        config.checkpoints.require_chapter_approval = request.require_chapter_approval
+        config.checkpoints.require_chunk_approval = request.require_chunk_approval
 
         # Create state
         state = create_new_state(project_id)
 
-        # Ensure output directory exists
-        os.makedirs(f"output/{project_id}", exist_ok=True)
+        # Create project directory structure
+        project_dir = f"output/{project_id}"
+        os.makedirs(project_dir, exist_ok=True)
+        os.makedirs(f"{project_dir}/planning", exist_ok=True)
+        os.makedirs(f"{project_dir}/manuscript", exist_ok=True)
+        os.makedirs(f"{project_dir}/critiques", exist_ok=True)
+        os.makedirs(f"{project_dir}/conversation_history", exist_ok=True)
 
         # Save config and state
         save_config_to_file(config, get_config_path(project_id))
@@ -143,6 +150,7 @@ async def create_project(request: CreateProjectRequest):
         )
 
     except Exception as e:
+        logger.error(f"Error creating project: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating project: {str(e)}"
@@ -677,10 +685,10 @@ async def get_status(project_id: str):
             project_id=project_id,
             phase=state.phase.value,
             plan_approved=state.plan_approved,
-            total_chapters=state.total_chapters,
-            current_chapter=state.current_chapter,
-            chapters_completed=state.chapters_completed,
-            chapters_approved=state.chapters_approved,
+            total_chunks=state.total_chunks,
+            current_chunk=state.current_chunk,
+            chunks_completed=state.chunks_completed,
+            chunks_approved=state.chunks_approved,
             paused=state.paused,
             created_at=state.created_at,
             last_updated=state.last_updated,
@@ -704,10 +712,10 @@ async def get_state(project_id: str):
             project_id=project_id,
             phase=state.phase.value,
             plan_approved=state.plan_approved,
-            total_chapters=state.total_chapters,
-            current_chapter=state.current_chapter,
-            chapters_completed=state.chapters_completed,
-            chapters_approved=state.chapters_approved,
+            total_chunks=state.total_chunks,
+            current_chunk=state.current_chunk,
+            chunks_completed=state.chunks_completed,
+            chunks_approved=state.chunks_approved,
             paused=state.paused,
             created_at=state.created_at,
             last_updated=state.last_updated,
@@ -731,9 +739,9 @@ async def get_progress(project_id: str):
             project_id=project_id,
             phase=state.phase.value,
             progress_percentage=get_progress_percentage(state),
-            current_chapter=state.current_chapter,
-            total_chapters=state.total_chapters,
-            chapters_completed=len(state.chapters_completed),
+            current_chunk=state.current_chunk,
+            total_chunks=state.total_chunks,
+            chunks_completed=len(state.chunks_completed),
             estimated_completion=state.estimated_completion
         )
 

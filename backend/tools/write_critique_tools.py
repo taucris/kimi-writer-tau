@@ -360,7 +360,7 @@ transitions back to writing phase for the next chunk. If this is the last chunk,
                 f.write(approval_notes)
                 f.write("\n")
 
-            # Update state
+            # Update state (but don't change phase yet - let agent_loop handle that)
             is_complete = False
             next_phase_msg = ""
 
@@ -373,27 +373,26 @@ transitions back to writing phase for the next chunk. If this is the last chunk,
 
                 # Check if novel is complete
                 if len(state.chunks_approved) >= state.total_chunks:
-                    update_phase(state, Phase.COMPLETE)
                     is_complete = True
-                    next_phase_msg = "All chunks complete! Novel generation finished."
+                    next_phase_msg = "All chunks complete! Novel generation finished (pending user approval if enabled)."
                 else:
-                    # Move to next chunk
+                    # Move to next chunk (increment counter but don't change phase)
                     increment_chunk(state)
-                    update_phase(state, Phase.WRITING)
-                    next_phase_msg = f"Chunk {chunk_number} approved. Moving to Chunk {state.current_chunk}."
+                    next_phase_msg = f"Chunk {chunk_number} approved by critic. Moving to Chunk {state.current_chunk} (pending user approval if enabled)."
 
                 save_state(state)
 
             return {
                 "success": True,
-                "message": f"Chunk {chunk_number} approved!",
+                "message": f"Chunk {chunk_number} approved by critic!",
                 "file_path": file_path,
                 "is_complete": is_complete,
                 "transition": {
                     "to_phase": "COMPLETE" if is_complete else "WRITING",
                     "data": {
                         "chunk_number": chunk_number,
-                        "approval_notes": approval_notes
+                        "approval_notes": approval_notes,
+                        "next_chunk": state.current_chunk if state and not is_complete else None
                     }
                 },
                 "next_phase": next_phase_msg

@@ -247,7 +247,7 @@ def approve_checkpoint(
     approval_notes: Optional[str] = None
 ) -> NovelState:
     """
-    Approve current checkpoint.
+    Approve current checkpoint and perform the requested phase transition.
 
     Args:
         state: Current state
@@ -271,10 +271,19 @@ def approve_checkpoint(
     approval_type = state.pending_approval.type
     if approval_type == 'plan':
         state.plan_approved = True
-    elif approval_type.startswith('chunk_'):
+    elif approval_type.startswith('chunk'):
         chunk_num = state.pending_approval.data.get('chunk_number')
         if chunk_num and chunk_num not in state.chunks_approved:
             state.chunks_approved.append(chunk_num)
+
+    # Perform the phase transition that was waiting for approval
+    to_phase_str = state.pending_approval.data.get('to_phase')
+    if to_phase_str:
+        try:
+            to_phase = Phase(to_phase_str)
+            update_phase(state, to_phase)
+        except (ValueError, KeyError):
+            pass  # Invalid phase, just clear approval
 
     # Clear pending approval
     state.pending_approval = None
@@ -287,7 +296,10 @@ def reject_checkpoint(
     rejection_notes: str
 ) -> NovelState:
     """
-    Reject current checkpoint (requires revision).
+    Reject current checkpoint and pause generation.
+
+    When a user rejects a checkpoint, the generation is paused so they can
+    review the materials and decide next steps.
 
     Args:
         state: Current state
@@ -307,8 +319,13 @@ def reject_checkpoint(
         'timestamp': datetime.now().isoformat()
     })
 
-    # Clear pending approval (agent will handle revision)
+    # Clear pending approval
     state.pending_approval = None
+
+    # Pause generation when user rejects
+    # This allows them to review materials and manually resume or stop
+    state.paused = True
+    state.paused_at = datetime.now()
 
     return state
 

@@ -31,7 +31,7 @@ class BaseAgent(ABC):
         self,
         config: NovelConfig,
         state: NovelState,
-        ws_manager=None
+        output_handler=None
     ):
         """
         Initialize the agent.
@@ -39,11 +39,13 @@ class BaseAgent(ABC):
         Args:
             config: Novel configuration
             state: Current novel state
-            ws_manager: Optional WebSocket manager for real-time updates
+            output_handler: Optional output handler for real-time updates (replaces ws_manager)
         """
         self.config = config
         self.state = state
-        self.ws_manager = ws_manager
+        self.output_handler = output_handler
+        # Backward compatibility: support old code that references ws_manager
+        self.ws_manager = output_handler
         self.message_history: List[Dict[str, Any]] = []
         self.tool_registry = ToolRegistry()
 

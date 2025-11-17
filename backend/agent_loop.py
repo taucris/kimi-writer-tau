@@ -26,6 +26,8 @@ from backend.utils.token_counter import estimate_token_count_async, should_compr
 from backend.tools.compression import compress_context_impl
 from backend.websocket_manager import get_ws_manager
 from backend.conversation_history import save_conversation_history, save_conversation_log
+from backend.output_handler import OutputHandler
+from backend.websocket_output import WebSocketOutputHandler
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +37,15 @@ class AgentLoop:
     Main agent loop that orchestrates multi-agent novel generation.
 
     Manages phase transitions, tool execution, token tracking, and
-    WebSocket updates.
+    output updates (WebSocket or console).
     """
 
     def __init__(
         self,
         project_id: str,
         config: Optional[NovelConfig] = None,
-        state: Optional[NovelState] = None
+        state: Optional[NovelState] = None,
+        output_handler: Optional[OutputHandler] = None
     ):
         """
         Initialize the agent loop.
@@ -51,6 +54,7 @@ class AgentLoop:
             project_id: Project ID
             config: Optional novel configuration (will load if not provided)
             state: Optional novel state (will load if not provided)
+            output_handler: Optional output handler (defaults to WebSocket)
         """
         self.project_id = project_id
 
@@ -82,8 +86,13 @@ class AgentLoop:
             f"Initialized {provider_type} provider for model {model_config['name']}"
         )
 
-        # WebSocket manager for real-time updates
-        self.ws_manager = get_ws_manager()
+        # Output handler for updates (WebSocket or Console)
+        if output_handler:
+            self.output = output_handler
+        else:
+            # Backward compatibility: use WebSocket manager
+            ws_manager = get_ws_manager()
+            self.output = WebSocketOutputHandler(ws_manager, project_id)
 
         # Set active project folder for tools
         set_active_project_folder(f"output/{project_id}")
@@ -116,15 +125,35 @@ class AgentLoop:
 
                 # Check for pending approvals
                 if self.state.pending_approval:
-                    await self.ws_manager.request_approval(
-                        self.project_id,
-                        self.state.pending_approval.type,
-                        self.state.pending_approval.data
-                    )
-                    logger.info(f"Waiting for approval: {self.state.pending_approval.type}")
-                    await asyncio.sleep(5)
-                    self.state = load_state(self.project_id)  # Reload state
-                    continue
+                    # Check if output handler supports interactive approval
+                    if hasattr(self.output, 'handle_approval_interactive'):
+                        # Console mode: handle approval interactively
+                        approved, notes = await self.output.handle_approval_interactive(
+                            self.project_id,
+                            self.state.pending_approval.type,
+                            self.state.pending_approval.data
+                        )
+
+                        # Process approval decision
+                        from backend.state_manager import approve_checkpoint, reject_checkpoint
+                        if approved:
+                            approve_checkpoint(self.state, notes)
+                        else:
+                            reject_checkpoint(self.state, notes or "")
+
+                        save_state(self.state)
+                        continue
+                    else:
+                        # WebSocket mode: wait for HTTP approval (existing behavior)
+                        await self.output.request_approval(
+                            self.project_id,
+                            self.state.pending_approval.type,
+                            self.state.pending_approval.data
+                        )
+                        logger.info(f"Waiting for approval: {self.state.pending_approval.type}")
+                        await asyncio.sleep(5)
+                        self.state = load_state(self.project_id)  # Reload state
+                        continue
 
                 # Detect phase transitions
                 if self.state.phase != self.last_phase:
@@ -178,7 +207,7 @@ class AgentLoop:
             # Send completion notification
             if is_complete(self.state):
                 stats = self.get_generation_stats()
-                await self.ws_manager.send_completion(self.project_id, stats)
+                await self.output.send_completion(self.project_id, stats)
                 logger.info(f"Novel generation complete for project {self.project_id}")
 
         except Exception as e:
@@ -202,7 +231,7 @@ class AgentLoop:
                 except Exception as save_error:
                     logger.error(f"Failed to save conversation on error: {save_error}")
 
-            await self.ws_manager.send_error(self.project_id, str(e), "agent_loop_error")
+            await self.output.send_error(self.project_id, str(e), "agent_loop_error")
             raise
 
     def get_current_agent(self):
@@ -226,7 +255,7 @@ class AgentLoop:
         # Reuse agent if same phase, otherwise create new
         if (self.current_agent is None or
             self.current_agent.__class__ != agent_class):
-            self.current_agent = agent_class(self.config, self.state, self.ws_manager)
+            self.current_agent = agent_class(self.config, self.state, self.output)
             logger.info(f"Initialized {agent_class.__name__} for phase {self.state.phase}")
 
         return self.current_agent
@@ -263,7 +292,7 @@ class AgentLoop:
         logger.info(f"Token count: {token_count}/{self.config.api.token_limit}")
 
         # Send token update
-        await self.ws_manager.send_token_update(
+        await self.output.send_token_update(
             self.project_id,
             token_count,
             self.config.api.token_limit
@@ -330,7 +359,7 @@ class AgentLoop:
                 # Handle reasoning content (if supported by model)
                 if parsed['reasoning_content']:
                     reasoning_content += parsed['reasoning_content']
-                    await self.ws_manager.send_stream_chunk(
+                    await self.output.send_stream_chunk(
                         self.project_id,
                         parsed['reasoning_content'],
                         is_reasoning=True
@@ -339,7 +368,7 @@ class AgentLoop:
                 # Handle regular content
                 if parsed['content']:
                     content_text += parsed['content']
-                    await self.ws_manager.send_stream_chunk(
+                    await self.output.send_stream_chunk(
                         self.project_id,
                         parsed['content'],
                         is_reasoning=False
@@ -395,7 +424,7 @@ class AgentLoop:
             except Exception as save_error:
                 logger.error(f"Failed to save conversation on iteration error: {save_error}")
 
-            await self.ws_manager.send_error(self.project_id, str(e))
+            await self.output.send_error(self.project_id, str(e))
             raise
 
     def reconstruct_tool_calls(self, tool_calls_data: List[Dict]) -> List:
@@ -437,7 +466,7 @@ class AgentLoop:
             except json.JSONDecodeError:
                 args = {}
 
-            await self.ws_manager.send_tool_call(
+            await self.output.send_tool_call(
                 self.project_id,
                 func_name,
                 args
@@ -449,7 +478,7 @@ class AgentLoop:
                 results.append(result)
 
                 # Send tool result
-                await self.ws_manager.send_tool_result(
+                await self.output.send_tool_result(
                     self.project_id,
                     func_name,
                     result
@@ -492,22 +521,36 @@ class AgentLoop:
 
         from_phase = self.state.phase
 
-        # Check if approval required
-        checkpoint_key = f"require_{to_phase_str.lower()}_approval"
-        if hasattr(self.config.checkpoints, checkpoint_key):
-            requires_approval = getattr(self.config.checkpoints, checkpoint_key)
+        # Map phase transitions to checkpoint config fields
+        # (from_phase, to_phase) -> checkpoint field name
+        checkpoint_mapping = {
+            (Phase.PLAN_CRITIQUE, Phase.WRITING): "require_plan_approval",
+            (Phase.WRITE_CRITIQUE, Phase.WRITING): "require_chunk_approval",
+            (Phase.WRITE_CRITIQUE, Phase.COMPLETE): "require_chunk_approval",
+        }
+
+        # Check if approval required for this specific transition
+        checkpoint_field = checkpoint_mapping.get((from_phase, to_phase))
+        if checkpoint_field and hasattr(self.config.checkpoints, checkpoint_field):
+            requires_approval = getattr(self.config.checkpoints, checkpoint_field)
             if requires_approval:
-                require_approval(self.state, to_phase_str.lower(), data)
+                # Create approval request with transition context
+                approval_data = {
+                    **data,
+                    "from_phase": from_phase.value,
+                    "to_phase": to_phase.value
+                }
+                require_approval(self.state, checkpoint_field.replace("require_", "").replace("_approval", ""), approval_data)
                 save_state(self.state)
-                logger.info(f"Approval required for transition to {to_phase_str}")
+                logger.info(f"User approval required for transition {from_phase.value} -> {to_phase.value}")
                 return
 
         # Perform transition
         update_phase(self.state, to_phase)
         save_state(self.state)
 
-        # Notify via WebSocket
-        await self.ws_manager.send_phase_change(
+        # Notify via output handler
+        await self.output.send_phase_change(
             self.project_id,
             from_phase.value,
             to_phase.value

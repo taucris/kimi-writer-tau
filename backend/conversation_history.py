@@ -25,7 +25,7 @@ def get_conversation_history_path(project_id: str, phase: str) -> str:
     Returns:
         Path to conversation history file
     """
-    return f"output/{project_id}/.conversation_history_{phase}.json"
+    return f"output/{project_id}/conversation_history/conversation_history_{phase}.json"
 
 
 def get_conversation_log_path(project_id: str, phase: str) -> str:
@@ -39,7 +39,7 @@ def get_conversation_log_path(project_id: str, phase: str) -> str:
     Returns:
         Path to conversation log file
     """
-    return f"output/{project_id}/.conversation_log_{phase}.md"
+    return f"output/{project_id}/conversation_history/conversation_log_{phase}.md"
 
 
 def serialize_message(message: Dict[str, Any]) -> Dict[str, Any]:

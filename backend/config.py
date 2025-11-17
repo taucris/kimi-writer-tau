@@ -192,19 +192,45 @@ class NovelConfig(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now)
 
 
-def generate_project_id() -> str:
-    """Generate a unique project ID based on timestamp."""
-    return f"novel_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+def generate_project_id(project_name: str) -> str:
+    """
+    Generate a unique project ID based on project name and timestamp.
+
+    Format: "{project_name} - {timestamp}"
+    Example: "For whom the bell tolls - 20251116_225433"
+
+    Args:
+        project_name: User-provided project name (will be sanitized)
+
+    Returns:
+        Project ID string
+    """
+    sanitized_name = sanitize_project_name(project_name)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return f"{sanitized_name} - {timestamp}"
 
 
 def sanitize_project_name(name: str) -> str:
-    """Sanitize project name for filesystem compatibility."""
-    # Replace spaces and special characters
-    sanitized = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in name)
-    # Replace multiple spaces/underscores with single underscore
-    sanitized = '_'.join(sanitized.split())
-    # Lowercase and limit length
-    sanitized = sanitized.lower()[:50]
+    """
+    Sanitize project name for filesystem compatibility.
+
+    Preserves spaces and common punctuation for readability while ensuring
+    filesystem safety.
+
+    Args:
+        name: Raw project name
+
+    Returns:
+        Sanitized project name
+    """
+    # Replace characters that are problematic for filesystems
+    # Allow: letters, numbers, spaces, hyphens, apostrophes, commas
+    sanitized = "".join(c if c.isalnum() or c in (' ', '-', "'", ',') else '' for c in name)
+    # Collapse multiple spaces into single space
+    sanitized = ' '.join(sanitized.split())
+    # Limit length (reserve space for timestamp: " - 20251116_225433" = 20 chars)
+    max_name_length = 80  # Allow longer names since we're using readable format
+    sanitized = sanitized[:max_name_length].strip()
     return sanitized
 
 
@@ -319,7 +345,7 @@ def get_default_config(
     Returns:
         NovelConfig with default settings
     """
-    project_id = generate_project_id()
+    project_id = generate_project_id(project_name)
     sanitized_name = sanitize_project_name(project_name)
 
     # Handle legacy api_key parameter

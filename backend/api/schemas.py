@@ -25,7 +25,7 @@ class CreateProjectRequest(BaseModel):
     max_plan_critique_iterations: int = Field(default=2, ge=1, le=10)
     max_write_critique_iterations: int = Field(default=2, ge=1, le=10)
     require_plan_approval: bool = True
-    require_chapter_approval: bool = False
+    require_chunk_approval: bool = False
 
 
 class UpdateConfigRequest(BaseModel):
@@ -77,10 +77,10 @@ class StateResponse(BaseModel):
     project_id: str
     phase: str
     plan_approved: bool
-    total_chapters: int
-    current_chapter: int
-    chapters_completed: List[int]
-    chapters_approved: List[int]
+    total_chunks: int
+    current_chunk: int
+    chunks_completed: List[int]
+    chunks_approved: List[int]
     paused: bool
     created_at: datetime
     last_updated: datetime
@@ -139,9 +139,9 @@ class ProgressResponse(BaseModel):
     project_id: str
     phase: str
     progress_percentage: float
-    current_chapter: int
-    total_chapters: int
-    chapters_completed: int
+    current_chunk: int
+    total_chunks: int
+    chunks_completed: int
     estimated_completion: Optional[datetime] = None
 
 
@@ -164,7 +164,7 @@ class GenerationStatsResponse(BaseModel):
     project_id: str
     total_iterations: int
     plan_critique_iterations: int
-    average_chapter_critique_iterations: float
+    average_chunk_critique_iterations: float
     total_words_written: int
     time_elapsed: float
     phase_transitions: List[Dict[str, Any]]

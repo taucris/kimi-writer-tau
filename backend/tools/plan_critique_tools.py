@@ -170,7 +170,7 @@ plot holes, inconsistencies, weak motivations, or areas for improvement. This cr
             state.plan_critique_iterations = version
 
         # Save critique
-        critique_dir = os.path.join(project_folder, "planning", "critiques")
+        critique_dir = os.path.join(project_folder, "critiques")
         os.makedirs(critique_dir, exist_ok=True)
 
         file_path = os.path.join(critique_dir, f"plan_critique_v{version}.md")
@@ -548,15 +548,14 @@ materials are reviewed and meet quality standards. This ends the plan critique p
                 f.write(approval_notes)
                 f.write("\n")
 
-            # Update state
+            # Update state - mark plan as approved (but don't change phase yet)
             if state:
                 state.plan_approved = True
-                update_phase(state, Phase.WRITING)
                 save_state(state)
 
             return {
                 "success": True,
-                "message": "Plan approved! Transitioning to writing phase.",
+                "message": "Plan approved by critic! Requesting user approval before transitioning to writing phase.",
                 "file_path": approval_file,
                 "transition": {
                     "to_phase": "WRITING",
@@ -565,7 +564,7 @@ materials are reviewed and meet quality standards. This ends the plan critique p
                         "critique_iterations": state.plan_critique_iterations if state else 0
                     }
                 },
-                "next_phase": "The Creative Writer will now begin writing chapters based on the approved plan."
+                "next_phase": "The Creative Writer will begin writing chunks based on the approved plan (pending user approval)."
             }
 
         except Exception as e:
